@@ -3,10 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Visual Measure Scroller</title>
+    <title>Precision Sheet Scroller v5</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
-        :root { --primary: #3498db; --bg: #0f172a; --panel: #1e293b; --accent: #f1c40f; --measure-a: rgba(46, 204, 113, 0.3); --measure-b: rgba(46, 204, 113, 0.1); }
+        :root { 
+            --primary: #3498db; --bg: #0f172a; --panel: #1e293b; --accent: #f1c40f; 
+            --measure-a: rgba(46, 204, 113, 0.4); /* Felgroen */
+            --measure-b: rgba(52, 152, 219, 0.2); /* Transparant blauw */
+        }
         body { font-family: sans-serif; margin: 0; background: var(--bg); color: white; touch-action: manipulation; }
         
         #ui-layer { position: fixed; top: 0; width: 100%; background: var(--panel); padding: 15px; z-index: 1000; border-bottom: 2px solid var(--primary); display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
@@ -16,9 +20,11 @@
         canvas { background: white; margin-bottom: 20px; box-shadow: 0 0 30px rgba(0,0,0,0.5); max-width: 98vw; }
         
         /* Markeringen */
-        .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--accent); pointer-events: none; z-index: 10; }
-        .measure-block { position: absolute; height: 100%; pointer-events: none; border-right: 2px solid #2ecc71; z-index: 5; }
+        .system-box { position: absolute; left: 0; width: 100%; border: 3px solid var(--accent); pointer-events: none; z-index: 10; box-sizing: border-box; }
+        .measure-block { position: absolute; height: 100%; pointer-events: none; border-right: 2px solid white; z-index: 5; box-sizing: border-box; }
         
+        .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 4px 10px; border-radius: 5px; font-weight: bold; font-size: 16px; z-index: 20; transform: translateY(-50%); }
+
         .btn { padding: 12px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; }
         .btn-start { background: #27ae60; color: white; }
         .btn-next { background: var(--accent); color: #000; display: none; }
@@ -75,12 +81,13 @@
     });
 
     container.addEventListener('mousedown', (e) => {
+        if (state === 'IDLE') return;
         const rect = container.getBoundingClientRect();
         const y = (e.pageY) - (rect.top + window.scrollY);
         const x = (e.pageX) - rect.left;
 
         if (state === 'TOP') {
-            currentSystem = { top: y, bottom: 0, measures: [] };
+            currentSystem = { top: y, bottom: 0, measures: [], counterEl: null };
             state = 'BOTTOM';
             stepEl.innerText = "3. Tik op de ONDERKANT van de regel";
         } 
@@ -90,12 +97,21 @@
             box.className = 'system-box';
             box.style.top = currentSystem.top + 'px';
             box.style.height = (y - currentSystem.top) + 'px';
+            
+            // Maat-teller toevoegen aan de rechterkant
+            const counter = document.createElement('div');
+            counter.className = 'measure-counter';
+            counter.style.top = (currentSystem.top + (y - currentSystem.top)/2) + 'px';
+            counter.innerText = "Maten: 1";
+            currentSystem.counterEl = counter;
+            
             container.appendChild(box);
-            visualElements.push(box);
+            container.appendChild(counter);
+            visualElements.push(box, counter);
             
             state = 'MEASURES';
             nextBtn.style.display = 'inline-block';
-            stepEl.innerText = "4. Tik op de maatstrepen (vlakken kleuren mee)";
+            stepEl.innerText = "4. Tik op de maatstrepen";
         }
         else if (state === 'MEASURES') {
             const lastX = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
@@ -107,11 +123,13 @@
             block.style.height = (currentSystem.bottom - currentSystem.top) + 'px';
             block.style.left = lastX + 'px';
             block.style.width = (x - lastX) + 'px';
-            // Om-en-om kleur geven
             block.style.background = currentSystem.measures.length % 2 === 0 ? 'var(--measure-b)' : 'var(--measure-a)';
             
             container.appendChild(block);
             visualElements.push(block);
+            
+            // Update teller
+            currentSystem.counterEl.innerText = `Maten: ${currentSystem.measures.length + 1}`;
         }
     });
 
@@ -121,14 +139,20 @@
             const lastEl = visualElements.pop();
             if (lastEl) {
                 lastEl.remove();
-                if (lastEl.className === 'system-box') { state = 'BOTTOM'; nextBtn.style.display = 'none'; }
-                else { currentSystem.measures.pop(); }
+                if (lastEl.className === 'system-box') { 
+                    visualElements.pop().remove(); // Verwijder ook de counter
+                    state = 'BOTTOM'; 
+                    nextBtn.style.display = 'none'; 
+                }
+                else { 
+                    currentSystem.measures.pop(); 
+                    currentSystem.counterEl.innerText = `Maten: ${currentSystem.measures.length + 1}`;
+                }
             }
         }
     });
 
     nextBtn.addEventListener('click', () => {
-        // Voeg het laatste vlak toe (van laatste streep naar rechterkant)
         const lastX = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
         const finalBlock = document.createElement('div');
         finalBlock.className = 'measure-block';
@@ -142,13 +166,16 @@
         systems.push(currentSystem);
         currentSystem = null; visualElements = []; state = 'TOP';
         nextBtn.style.display = 'none';
-        stepEl.innerText = "Opgeslagen! Tik op de BOVENKANT van de volgende regel.";
+        stepEl.innerText = "Regel klaar! Tik op de BOVENKANT van de volgende regel.";
     });
 
     document.getElementById('start-btn').addEventListener('click', async () => {
         if(systems.length === 0) return;
         const bpm = document.getElementById('bpm').value;
         const beats = document.getElementById('time-sig').value;
+        window.scrollTo({top: systems[0].top - 150, behavior: 'smooth'});
+        await new Promise(r => setTimeout(r, 800));
+        
         for (let sys of systems) {
             const totalSeconds = ((sys.measures.length + 1) * beats) / bpm * 60;
             const speed = (sys.bottom - sys.top) / totalSeconds;
