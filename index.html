@@ -3,99 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartSheet Scroller Pro</title>
+    <title>Precision Sheet Scroller</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
-        :root { --primary: #3498db; --bg: #0f172a; --panel: rgba(30, 41, 59, 0.95); --accent: #10b981; --marker: #e74c3c; }
+        :root { --primary: #3498db; --bg: #0f172a; --panel: #1e293b; --accent: #f1c40f; }
+        body { font-family: sans-serif; margin: 0; background: var(--bg); color: white; }
         
-        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: var(--bg); color: #f8fafc; overflow-x: hidden; }
+        #ui-layer { position: fixed; top: 0; width: 100%; background: var(--panel); padding: 10px; z-index: 1000; border-bottom: 2px solid var(--primary); display: flex; gap: 15px; flex-wrap: wrap; align-items: center; justify-content: center; }
         
-        /* UI Paneel bovenin */
-        #ui-layer { position: fixed; top: 0; width: 100%; background: var(--panel); border-bottom: 1px solid #334155; padding: 10px 0; z-index: 1000; backdrop-filter: blur(10px); }
-        .container { max-width: 1100px; margin: 0 auto; display: flex; gap: 20px; align-items: center; justify-content: center; flex-wrap: wrap; }
-
-        .input-group { display: flex; flex-direction: column; gap: 4px; }
-        label { font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
-        input { background: #1e293b; border: 1px solid #475569; color: white; padding: 8px; border-radius: 6px; width: 80px; transition: border 0.2s; }
-        input:focus { border-color: var(--primary); outline: none; }
-        #upload { width: auto; font-size: 12px; }
-
-        /* Knoppen */
-        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
-        .btn-success { background: var(--accent); color: white; }
-        .btn-secondary { background: #475569; color: white; }
-        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
-        .btn:active { transform: translateY(0); }
-
-        /* Onboarding / Instructies */
-        #onboarding { background: #1e293b; padding: 20px; border-radius: 12px; margin: 140px auto 30px auto; max-width: 700px; border-left: 5px solid var(--primary); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); }
-        #onboarding h3 { margin: 0 0 10px 0; color: var(--primary); }
-        #onboarding ul { margin: 0; padding-left: 20px; line-height: 1.6; }
-
-        /* PDF Viewer en Markers */
-        #pdf-render-area { position: relative; display: flex; flex-direction: column; align-items: center; padding-bottom: 60vh; cursor: crosshair; }
-        canvas { background: white; margin-bottom: 30px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); border-radius: 4px; max-width: 95vw; }
+        .control-group { display: flex; flex-direction: column; font-size: 11px; }
+        input, select { background: #334155; border: 1px solid #475569; color: white; padding: 5px; border-radius: 4px; }
         
-        .marker-line { position: absolute; left: 0; width: 100%; height: 2px; background: var(--primary); pointer-events: none; box-shadow: 0 0 8px var(--primary); z-index: 500; }
-        .marker-label { position: absolute; right: 20px; background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; transform: translateY(-100%); }
+        #pdf-render-area { position: relative; margin-top: 120px; display: flex; flex-direction: column; align-items: center; }
+        canvas { background: white; margin-bottom: 20px; box-shadow: 0 0 20px rgba(0,0,0,0.5); max-width: 95vw; }
+        
+        /* Marker Styles */
+        .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--accent); background: rgba(241, 196, 15, 0.1); pointer-events: none; }
+        .system-label { position: absolute; right: 10px; top: 2px; background: var(--accent); color: black; font-size: 10px; font-weight: bold; padding: 2px 5px; border-radius: 3px; }
 
-        /* Snelheid indicator tijdens scrollen */
-        #speed-toast { position: fixed; bottom: 20px; right: 20px; background: var(--primary); padding: 10px 15px; border-radius: 8px; display: none; z-index: 2000; }
+        #onboarding { background: #2d3748; padding: 15px; border-radius: 8px; margin: 140px auto 20px auto; max-width: 800px; border-left: 5px solid var(--accent); }
+        .btn { padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-start { background: #27ae60; color: white; }
     </style>
 </head>
 <body>
 
 <div id="ui-layer">
-    <div class="container">
-        <div class="input-group">
-            <label>1. Laad PDF</label>
-            <input type="file" id="upload" accept="application/pdf">
-        </div>
-        <div class="input-group">
-            <label>2. Tempo (BPM)</label>
-            <input type="number" id="bpm-input" value="100">
-        </div>
-        <div class="input-group">
-            <label>3. Maten/Regel</label>
-            <input type="number" id="measures-input" value="4">
-        </div>
-        <div style="display:flex; gap: 12px; align-self: flex-end;">
-            <button id="start-btn" class="btn btn-success">START PERFORMANCE</button>
-            <button id="clear-btn" class="btn btn-secondary">RESET</button>
-        </div>
+    <div class="control-group"><label>1. PDF</label><input type="file" id="upload"></div>
+    <div class="control-group"><label>2. BPM</label><input type="number" id="bpm" value="120"></div>
+    <div class="control-group">
+        <label>3. MAATSOORT</label>
+        <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select>
     </div>
+    <div class="control-group"><label>4. MATEN NU</label><input type="number" id="measures-count" value="4"></div>
+    <button id="start-btn" class="btn btn-start">START PERFORMANCE</button>
+    <button onclick="location.reload()" class="btn">RESET</button>
 </div>
 
 <div id="onboarding">
-    <h3>Klaar voor de start?</h3>
-    <ul>
-        <li>Klik op de <b>bovenste lijn</b> van elke notenbalk om markers te plaatsen.</li>
-        <li>De blauwe lijnen moeten precies op de bladmuziek liggen.</li>
-        <li><b>Tijdens het spelen:</b> Gebruik <b>↑</b> om te versnellen en <b>↓</b> om te vertragen.</li>
-    </ul>
+    <h3>Precision Mode Instructies:</h3>
+    <p>1. Stel de <b>Maatsoort</b> en de <b>BPM</b> in.<br>
+       2. Klik voor elke regel muziek twee keer: <b>Eerst boven</b> (Sol) en <b>dan onder</b> (Fa).<br>
+       3. Pas "MATEN NU" aan vóór je op de volgende regel klikt als die een ander aantal maten heeft.</p>
 </div>
 
 <div id="pdf-render-area"></div>
-<div id="speed-toast">Snelheid aangepast...</div>
 
 <script>
     const pdfjsLib = window['pdfjs-dist/build/pdf'];
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
-    let markers = [];
+    let systems = []; 
+    let tempY = null;
     let scrollInterval;
-    let currentSpeed = 0;
 
-    // 1. PDF laden
     document.getElementById('upload').addEventListener('change', async (e) => {
         const file = e.target.files[0];
-        if (!file) return;
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
         const container = document.getElementById('pdf-render-area');
         container.innerHTML = '';
-        markers = [];
-        
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const viewport = page.getViewport({ scale: 1.5 });
@@ -106,80 +73,57 @@
         }
     });
 
-    // 2. Marker fix: Correcte positie berekenen
-    document.getElementById('pdf-render-area').addEventListener('click', (e) => {
-        const container = document.getElementById('pdf-render-area');
-        const rect = container.getBoundingClientRect();
-        
-        // Bereken de positie relatief aan de bovenkant van de container, rekening houdend met scrollen
-        const yPos = (e.clientY - rect.top);
-        
-        markers.push(yPos);
-        markers.sort((a, b) => a - b);
-        
-        const div = document.createElement('div');
-        div.className = 'marker-line';
-        div.style.top = yPos + 'px';
-        div.innerHTML = `<span class="marker-label">Regel ${markers.length}</span>`;
-        container.appendChild(div);
+    document.getElementById('pdf-render-area').addEventListener('mousedown', (e) => {
+        const rect = document.getElementById('pdf-render-area').getBoundingClientRect();
+        const y = e.clientY - rect.top;
+
+        if (tempY === null) {
+            tempY = y; // Eerste klik (bovenkant regel)
+        } else {
+            // Tweede klik (onderkant regel)
+            const height = y - tempY;
+            const measures = document.getElementById('measures-count').value;
+            
+            systems.push({ top: tempY, height: height, measures: parseInt(measures) });
+            
+            const box = document.createElement('div');
+            box.className = 'system-box';
+            box.style.top = tempY + 'px';
+            box.style.height = height + 'px';
+            box.innerHTML = `<span class="system-label">Regel ${systems.length}: ${measures} maten</span>`;
+            document.getElementById('pdf-render-area').appendChild(box);
+            
+            tempY = null;
+        }
     });
 
-    // 3. Scrollen met variabele snelheid
-    function setScrollSpeed(speed) {
-        currentSpeed = speed;
-        clearInterval(scrollInterval);
-        if (speed <= 0) return;
-        
-        scrollInterval = setInterval(() => {
-            window.scrollBy(0, 1);
-        }, 1000 / speed);
-
-        // Laat kort een melding zien bij aanpassing
-        const toast = document.getElementById('speed-toast');
-        toast.style.display = 'block';
-        toast.innerText = `Snelheid: ${Math.round(speed * 10) / 10} px/s`;
-        setTimeout(() => { toast.style.display = 'none'; }, 1000);
-    }
-
-    document.getElementById('start-btn').addEventListener('click', () => {
-        if (markers.length < 2) {
-            alert("Klik eerst op tenminste twee notenbalken!");
-            return;
-        }
-        
+    document.getElementById('start-btn').addEventListener('click', async () => {
         document.getElementById('onboarding').style.display = 'none';
-        const bpm = document.getElementById('bpm-input').value;
-        const measures = document.getElementById('measures-input').value;
-        
-        // Bereken gemiddelde afstand tussen markers
-        let totalDist = 0;
-        for(let i=1; i<markers.length; i++) totalDist += (markers[i] - markers[i-1]);
-        const avgDist = totalDist / (markers.length - 1);
+        const bpm = document.getElementById('bpm').value;
+        const beatsPerMeasure = document.getElementById('time-sig').value;
 
-        const pixelsPerSecond = (avgDist / measures * bpm) / 60;
-        setScrollSpeed(pixelsPerSecond);
-    });
+        for (let sys of systems) {
+            // Tijd voor deze specifieke regel in seconden
+            const secondsPerSystem = (sys.measures * beatsPerMeasure) / bpm * 60;
+            const pixelsPerSecond = sys.height / secondsPerSystem;
 
-    // 4. Toetsenbord besturing
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            setScrollSpeed(currentSpeed * 1.05); // 5% sneller
-        }
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            setScrollSpeed(currentSpeed * 0.95); // 5% langzamer
-        }
-        if (e.key === ' ') { // Spatie om te stoppen/starten
-            e.preventDefault();
-            if (currentSpeed > 0) setScrollSpeed(0);
+            await scrollSystem(sys.height, pixelsPerSecond);
         }
     });
 
-    document.getElementById('clear-btn').addEventListener('click', () => {
-        location.reload();
-    });
+    function scrollSystem(distance, speed) {
+        return new Promise(resolve => {
+            let traveled = 0;
+            let interval = setInterval(() => {
+                window.scrollBy(0, 1);
+                traveled += 1;
+                if (traveled >= distance) {
+                    clearInterval(interval);
+                    resolve();
+                }
+            }, 1000 / speed);
+        });
+    }
 </script>
-
 </body>
 </html>
