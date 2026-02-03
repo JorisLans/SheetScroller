@@ -7,69 +7,44 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { --primary: #3498db; --bg: #0f172a; --panel: rgba(30, 41, 59, 0.9); --accent: #10b981; }
-        body { font-family: 'Inter', system-ui, sans-serif; margin: 0; background: var(--bg); color: #f8fafc; }
-        
-        /* Header & Nav */
-        #ui-layer { position: fixed; top: 0; width: 100%; background: var(--panel); border-bottom: 1px solid #334155; padding: 15px; z-index: 1000; backdrop-filter: blur(10px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        .container { max-width: 1000px; margin: 0 auto; display: flex; gap: 15px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
-
-        /* Instructies */
-        #onboarding { background: #1e293b; padding: 15px; border-radius: 8px; margin: 120px auto 20px auto; max-width: 800px; border-left: 4px solid var(--primary); }
-        #onboarding h3 { margin-top: 0; color: var(--primary); }
-        #onboarding ol { padding-left: 20px; font-size: 0.9em; line-height: 1.6; }
-
-        /* Knoppen & Inputs */
-        .input-group { display: flex; flex-direction: column; gap: 5px; }
-        .input-group label { font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase; }
-        input { background: #334155; border: 1px solid #475569; color: white; padding: 8px; border-radius: 6px; }
-        .btn { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
-        .btn-primary { background: var(--primary); color: white; }
+        body { font-family: sans-serif; margin: 0; background: var(--bg); color: #f8fafc; overflow-x: hidden; }
+        #ui-layer { position: fixed; top: 0; width: 100%; background: var(--panel); border-bottom: 1px solid #334155; padding: 10px; z-index: 1000; backdrop-filter: blur(10px); }
+        .container { max-width: 1100px; margin: 0 auto; display: flex; gap: 15px; align-items: center; justify-content: space-around; flex-wrap: wrap; }
+        #onboarding { background: #1e293b; padding: 15px; border-radius: 8px; margin: 130px auto 20px auto; max-width: 800px; border-left: 4px solid var(--primary); }
+        .input-group { display: flex; flex-direction: column; gap: 2px; }
+        label { font-size: 10px; font-weight: bold; color: #94a3b8; text-transform: uppercase; }
+        input { background: #334155; border: 1px solid #475569; color: white; padding: 5px; border-radius: 4px; width: 80px; }
+        #upload { width: auto; }
+        .btn { padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
         .btn-success { background: var(--accent); color: white; }
         .btn-secondary { background: #64748b; color: white; }
-        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
-
-        /* PDF & Markers */
-        #pdf-render-area { position: relative; display: flex; flex-direction: column; align-items: center; padding-bottom: 300px; }
-        canvas { background: white; margin-bottom: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5); border-radius: 4px; max-width: 95vw; }
-        .marker-line { position: absolute; left: 0; width: 100%; height: 3px; background: rgba(52, 152, 219, 0.6); pointer-events: none; border-top: 1px solid var(--primary); }
-        .marker-label { position: absolute; right: 20px; background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; transform: translateY(-100%); }
+        #pdf-render-area { position: relative; display: flex; flex-direction: column; align-items: center; padding-bottom: 50vh; }
+        canvas { background: white; margin-bottom: 20px; box-shadow: 0 10px 15px rgba(0,0,0,0.5); max-width: 95vw; }
+        .marker-line { position: absolute; left: 0; width: 100%; height: 2px; background: rgba(52, 152, 219, 0.7); pointer-events: none; border-top: 1px solid var(--primary); }
+        .marker-label { position: absolute; right: 10px; background: var(--primary); color: white; padding: 1px 5px; border-radius: 3px; font-size: 9px; transform: translateY(-100%); }
     </style>
 </head>
 <body>
 
 <div id="ui-layer">
     <div class="container">
-        <div class="input-group">
-            <label>1. Laad Muziek</label>
-            <input type="file" id="upload" accept="application/pdf">
-        </div>
-        
-        <div class="input-group">
-            <label>2. Tempo (BPM)</label>
-            <input type="number" id="bpm-input" value="100">
-        </div>
-
-        <div class="input-group">
-            <label>3. Maten/Regel</label>
-            <input type="number" id="measures-input" value="4">
-        </div>
-
-        <div style="display:flex; gap: 10px; align-self: flex-end;">
-            <button id="start-btn" class="btn btn-success">START SCROLLEN</button>
+        <div class="input-group"><label>1. PDF</label><input type="file" id="upload" accept="application/pdf"></div>
+        <div class="input-group"><label>2. BPM</label><input type="number" id="bpm-input" value="100"></div>
+        <div class="input-group"><label>3. Maten/Balk</label><input type="number" id="measures-input" value="4"></div>
+        <div style="display:flex; gap: 10px;">
+            <button id="start-btn" class="btn btn-success">START</button>
             <button id="clear-btn" class="btn btn-secondary">RESET</button>
         </div>
     </div>
 </div>
 
 <div id="onboarding">
-    <h3>Hoe werkt het?</h3>
-    <ol>
-        <li>Selecteer je PDF-bestand.</li>
-        <li><strong>Belangrijk:</strong> Klik op de <strong>bovenste lijn</strong> van de eerste notenbalk (het begin van de muziek).</li>
-        <li>Klik vervolgens op de <strong>bovenste lijn</strong> van de tweede notenbalk, de derde, enzovoort.</li>
-        <li>De site berekent de afstand tussen deze punten om de scrol-snelheid perfect te maken.</li>
-        <li>Druk op "Start Scrollen" en begin met spelen!</li>
-    </ol>
+    <h3>Bijna klaar!</h3>
+    <p>Klik op de <b>bovenste lijn van elke notenbalk</b>. Gebruik tijdens het scrollen:</p>
+    <ul>
+        <li><b>Pijltje Omhoog:</b> Iets sneller</li>
+        <li><b>Pijltje Omlaag:</b> Iets langzamer</li>
+    </ul>
 </div>
 
 <div id="pdf-render-area"></div>
@@ -80,23 +55,20 @@
 
     let markers = [];
     let scrollInterval;
+    let currentSpeed = 0;
 
     document.getElementById('upload').addEventListener('change', async (e) => {
         const file = e.target.files[0];
-        if (!file) return;
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
         const container = document.getElementById('pdf-render-area');
         container.innerHTML = '';
         markers = [];
-        document.getElementById('onboarding').style.display = 'block';
-
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const viewport = page.getViewport({ scale: 1.5 });
             const canvas = document.createElement('canvas');
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
+            canvas.width = viewport.width; canvas.height = viewport.height;
             await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
             container.appendChild(canvas);
         }
@@ -106,42 +78,36 @@
         const yPos = e.pageY;
         markers.push(yPos);
         markers.sort((a, b) => a - b);
-        
-        const markerDiv = document.createElement('div');
-        markerDiv.className = 'marker-line';
-        markerDiv.style.top = yPos + 'px';
-        markerDiv.innerHTML = `<span class="marker-label">Regel ${markers.length}</span>`;
-        document.getElementById('pdf-render-area').appendChild(markerDiv);
+        const div = document.createElement('div');
+        div.className = 'marker-line';
+        div.style.top = yPos + 'px';
+        div.innerHTML = `<span class="marker-label">Regel ${markers.length}</span>`;
+        document.getElementById('pdf-render-area').appendChild(div);
     });
+
+    function startScrolling(speed) {
+        currentSpeed = speed;
+        clearInterval(scrollInterval);
+        if (speed === 0) return;
+        scrollInterval = setInterval(() => { window.scrollBy(0, 1); }, 1000 / speed);
+    }
 
     document.getElementById('start-btn').addEventListener('click', () => {
-        if (markers.length < 2) {
-            alert("Klik eerst op tenminste twee notenbalken om de afstand te bepalen!");
-            return;
-        }
-        
+        if (markers.length < 2) return alert("Klik op minstens 2 balken!");
         document.getElementById('onboarding').style.display = 'none';
         const bpm = document.getElementById('bpm-input').value;
-        const measuresPerStaff = document.getElementById('measures-input').value;
-        
-        let totalDist = 0;
-        for(let i=1; i<markers.length; i++) totalDist += (markers[i] - markers[i-1]);
-        const avgDist = totalDist / (markers.length - 1);
-
-        const pixelsPerMeasure = avgDist / measuresPerStaff;
-        const pixelsPerSecond = (pixelsPerMeasure * bpm) / 60;
-
-        clearInterval(scrollInterval);
-        scrollInterval = setInterval(() => {
-            window.scrollBy(0, 1);
-        }, 1000 / pixelsPerSecond);
+        const measures = document.getElementById('measures-input').value;
+        const avgDist = (markers[markers.length-1] - markers[0]) / (markers.length - 1);
+        const speed = (avgDist / measures * bpm) / 60;
+        startScrolling(speed);
     });
 
-    document.getElementById('clear-btn').addEventListener('click', () => {
-        location.reload();
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowUp') startScrolling(currentSpeed * 1.05);
+        if (e.key === 'ArrowDown') startScrolling(currentSpeed * 0.95);
     });
+
+    document.getElementById('clear-btn').addEventListener('click', () => location.reload());
 </script>
-
 </body>
 </html>
-
