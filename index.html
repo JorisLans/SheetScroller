@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Sheet Scroller v3</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <style>
+        :root { --primary: #2c3e50; --accent: #2ecc71; --marker: #e74c3c; }
+        body { font-family: sans-serif; margin: 0; background: #121212; color: white; }
+        
+        #ui-layer { position: fixed; top: 0; width: 100%; background: rgba(30, 30, 30, 0.9); padding: 10px; z-index: 1000; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid #333; }
+        
+        #pdf-render-area { margin-top: 120px; position: relative; cursor: crosshair; }
+        canvas { display: block; margin: 0 auto 20px auto; background: white; box-shadow: 0 0 30px rgba(0,0,0,0.7); }
+        
+        .marker { position: absolute; left: 0; width: 100%; height: 2px; background: var(--marker); pointer-events: none; }
+        .marker::after { content: 'STAFF'; position: absolute; right: 10px; top: -10px; font-size: 10px; color: var(--marker); }
+
+        .btn { padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-mode { background: #34495e; color: white; }
+        .btn-mode.active { background: var(--marker); }
+        .btn-start { background: var(--accent); color: white; }
+        
+        #status-bar { position: fixed; bottom: 0; width: 100%; background: var(--primary); padding: 5px; font-size: 12px; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div id="ui-layer">
+    <input type="file" id="upload" accept="application/pdf">
+    <button id="mode-btn" class="btn btn-mode">MODUS: BEWERKEN (Klik op balken)</button>
+    <input type="number" id="bpm-input" value="120" title="BPM">
+    <input type="number" id="measures-input" value="4" title="Maten per balk" style="width: 50px;">
+    <button id="start-btn" class="btn btn-start">START PERFORMANCE</button>
+    <button id="clear-btn" class="btn">WIS MARKERS</button>
+</div>
+
+<div id="pdf-render-area"></div>
+<div id="status-bar">Klik op elke notenbalk in de PDF om de scrol-punten te bepalen.</div>
+
+<script>
+    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+    let markers = [];
+    let isEditMode = true;
+    let scrollInterval;
+
+    // 1. PDF Renderen (Zelfde als voorheen)
+    document.getElementById('upload').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+        const container = document.getElementById('pdf-render-area');
+        container.innerHTML = '';
+        markers = [];
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale: 1.5 });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width; canvas.height = viewport.height;
+            await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+            container.appendChild(canvas);
+        }
+    });
+
+    // 2. Markers plaatsen
+    document.getElementById('pdf-render-area').addEventListener('click', (e) => {
+        if (!isEditMode) return;
+        const yPos = e.pageY;
+        markers.push(yPos);
+        markers.sort((a, b) => a - b);
+        
+        const div = document.createElement('div');
+        div.className = 'marker';
+        div.style.top = yPos + 'px';
+        document.getElementById('pdf-render-area').appendChild(div);
+    });
+
+    // 3. Modus wisselen
+    document.getElementById('mode-btn').addEventListener('click', () => {
+        isEditMode = !isEditMode;
+        document.getElementById('mode-btn').classList.toggle('active');
+        document.getElementById('mode-btn').innerText = isEditMode ? 'MODUS: BEWERKEN' : 'MODUS: PERFORMANCE';
+    });
+
+    // 4. Intelligente Scroll
+    document.getElementById('start-btn').addEventListener('click', () => {
+        if (markers.length < 2) return alert("Plaats eerst minstens 2 markers op de notenbalken!");
+        
+        const bpm = document.getElementById('bpm-input').value;
+        const measuresPerStaff = document.getElementById('measures-input').value;
+        
+        // Bereken gemiddelde afstand tussen markers
+        let totalDist = 0;
+        for(let i=1; i<markers.length; i++) totalDist += (markers[i] - markers[i-1]);
+        const avgDist = totalDist / (markers.length - 1);
+
+        // Pixels per minuut = (Afstand / maten) * BPM
+        const pixelsPerMinute = (avgDist / measuresPerStaff) * bpm;
+        const pixelsPerSecond = pixelsPerMinute / 60;
+
+        clearInterval(scrollInterval);
+        scrollInterval = setInterval(() => {
+            window.scrollBy(0, 1);
+        }, 1000 / pixelsPerSecond);
+    });
+
+    document.getElementById('clear-btn').addEventListener('click', () => {
+        location.reload();
+    });
+</script>
+
+</body>
+</html>
