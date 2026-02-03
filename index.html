@@ -3,25 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Precision Sheet Scroller</title>
+    <title>Measure-Perfect Scroller</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
-        :root { --primary: #3498db; --bg: #0f172a; --panel: #1e293b; --accent: #f1c40f; }
-        body { font-family: sans-serif; margin: 0; background: var(--bg); color: white; }
+        :root { --primary: #3498db; --bg: #0f172a; --panel: #1e293b; --accent: #f1c40f; --measure: #2ecc71; }
+        body { font-family: sans-serif; margin: 0; background: var(--bg); color: white; overflow-x: hidden; }
         
-        #ui-layer { position: fixed; top: 0; width: 100%; background: var(--panel); padding: 10px; z-index: 1000; border-bottom: 2px solid var(--primary); display: flex; gap: 15px; flex-wrap: wrap; align-items: center; justify-content: center; }
+        #ui-layer { position: fixed; top: 0; width: 100%; background: var(--panel); padding: 10px; z-index: 1000; border-bottom: 2px solid var(--primary); display: flex; gap: 15px; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
         
-        .control-group { display: flex; flex-direction: column; font-size: 11px; }
-        input, select { background: #334155; border: 1px solid #475569; color: white; padding: 5px; border-radius: 4px; }
+        .status-msg { background: var(--primary); padding: 5px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; }
         
-        #pdf-render-area { position: relative; margin-top: 120px; display: flex; flex-direction: column; align-items: center; }
-        canvas { background: white; margin-bottom: 20px; box-shadow: 0 0 20px rgba(0,0,0,0.5); max-width: 95vw; }
+        #pdf-render-area { position: relative; margin-top: 130px; display: flex; flex-direction: column; align-items: center; }
+        canvas { background: white; margin-bottom: 20px; box-shadow: 0 0 30px rgba(0,0,0,0.5); max-width: 95vw; }
         
-        /* Marker Styles */
-        .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--accent); background: rgba(241, 196, 15, 0.1); pointer-events: none; }
-        .system-label { position: absolute; right: 10px; top: 2px; background: var(--accent); color: black; font-size: 10px; font-weight: bold; padding: 2px 5px; border-radius: 3px; }
-
-        #onboarding { background: #2d3748; padding: 15px; border-radius: 8px; margin: 140px auto 20px auto; max-width: 800px; border-left: 5px solid var(--accent); }
+        /* Visuele Hulpmiddelen */
+        .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--accent); background: rgba(241, 196, 15, 0.05); pointer-events: none; }
+        .measure-line { position: absolute; width: 2px; background: var(--measure); pointer-events: none; box-shadow: 0 0 5px var(--measure); }
+        
         .btn { padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .btn-start { background: #27ae60; color: white; }
     </style>
@@ -29,22 +27,12 @@
 <body>
 
 <div id="ui-layer">
-    <div class="control-group"><label>1. PDF</label><input type="file" id="upload"></div>
-    <div class="control-group"><label>2. BPM</label><input type="number" id="bpm" value="120"></div>
-    <div class="control-group">
-        <label>3. MAATSOORT</label>
-        <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select>
-    </div>
-    <div class="control-group"><label>4. MATEN NU</label><input type="number" id="measures-count" value="4"></div>
-    <button id="start-btn" class="btn btn-start">START PERFORMANCE</button>
+    <input type="file" id="upload">
+    <div class="status-msg" id="workflow-step">Stap 1: Upload een PDF</div>
+    <div>BPM: <input type="number" id="bpm" value="120" style="width:50px;"></div>
+    <div>Maat: <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option></select></div>
+    <button id="start-btn" class="btn btn-start">START</button>
     <button onclick="location.reload()" class="btn">RESET</button>
-</div>
-
-<div id="onboarding">
-    <h3>Precision Mode Instructies:</h3>
-    <p>1. Stel de <b>Maatsoort</b> en de <b>BPM</b> in.<br>
-       2. Klik voor elke regel muziek twee keer: <b>Eerst boven</b> (Sol) en <b>dan onder</b> (Fa).<br>
-       3. Pas "MATEN NU" aan vóór je op de volgende regel klikt als die een ander aantal maten heeft.</p>
 </div>
 
 <div id="pdf-render-area"></div>
@@ -53,9 +41,11 @@
     const pdfjsLib = window['pdfjs-dist/build/pdf'];
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
-    let systems = []; 
-    let tempY = null;
-    let scrollInterval;
+    let currentSystem = null;
+    let systems = [];
+    let state = 'IDLE'; // IDLE, TOP, BOTTOM, MEASURES
+
+    const stepEl = document.getElementById('workflow-step');
 
     document.getElementById('upload').addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -71,59 +61,78 @@
             await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
             container.appendChild(canvas);
         }
+        state = 'TOP';
+        stepEl.innerText = "Stap 2: Klik op de BOVENKANT van de regel";
     });
 
     document.getElementById('pdf-render-area').addEventListener('mousedown', (e) => {
         const rect = document.getElementById('pdf-render-area').getBoundingClientRect();
         const y = e.clientY - rect.top;
+        const x = e.clientX - rect.left;
 
-        if (tempY === null) {
-            tempY = y; // Eerste klik (bovenkant regel)
-        } else {
-            // Tweede klik (onderkant regel)
-            const height = y - tempY;
-            const measures = document.getElementById('measures-count').value;
+        if (state === 'TOP') {
+            currentSystem = { top: y, bottom: 0, measures: [] };
+            state = 'BOTTOM';
+            stepEl.innerText = "Stap 3: Klik op de ONDERKANT van de regel";
+        } 
+        else if (state === 'BOTTOM') {
+            currentSystem.bottom = y;
+            const height = y - currentSystem.top;
             
-            systems.push({ top: tempY, height: height, measures: parseInt(measures) });
-            
+            // Teken de box
             const box = document.createElement('div');
             box.className = 'system-box';
-            box.style.top = tempY + 'px';
+            box.style.top = currentSystem.top + 'px';
             box.style.height = height + 'px';
-            box.innerHTML = `<span class="system-label">Regel ${systems.length}: ${measures} maten</span>`;
             document.getElementById('pdf-render-area').appendChild(box);
             
-            tempY = null;
+            state = 'MEASURES';
+            stepEl.innerText = "Stap 4: Klik op elke maatstreep (of druk op Enter voor volgende regel)";
+        }
+        else if (state === 'MEASURES') {
+            currentSystem.measures.push(x);
+            const line = document.createElement('div');
+            line.className = 'measure-line';
+            line.style.top = currentSystem.top + 'px';
+            line.style.height = (currentSystem.bottom - currentSystem.top) + 'px';
+            line.style.left = x + 'px';
+            document.getElementById('pdf-render-area').appendChild(line);
+        }
+    });
+
+    // Enter toets om een regel af te sluiten
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && state === 'MEASURES') {
+            systems.push(currentSystem);
+            currentSystem = null;
+            state = 'TOP';
+            stepEl.innerText = "Regel opgeslagen! Klik op de BOVENKANT van de volgende regel";
         }
     });
 
     document.getElementById('start-btn').addEventListener('click', async () => {
-        document.getElementById('onboarding').style.display = 'none';
+        stepEl.innerText = "Spelen maar!";
         const bpm = document.getElementById('bpm').value;
-        const beatsPerMeasure = document.getElementById('time-sig').value;
-
+        const beats = document.getElementById('time-sig').value;
+        
         for (let sys of systems) {
-            // Tijd voor deze specifieke regel in seconden
-            const secondsPerSystem = (sys.measures * beatsPerMeasure) / bpm * 60;
-            const pixelsPerSecond = sys.height / secondsPerSystem;
-
-            await scrollSystem(sys.height, pixelsPerSecond);
+            // We scrollen de hele hoogte van het systeem. 
+            // De tijd is gebaseerd op het aantal maten (kliks in de regel + 1)
+            const numMeasures = sys.measures.length + 1;
+            const totalSeconds = (numMeasures * beats) / bpm * 60;
+            const speed = (sys.bottom - sys.top) / totalSeconds;
+            
+            await new Promise(resolve => {
+                let distance = 0;
+                let target = sys.bottom - sys.top;
+                let interval = setInterval(() => {
+                    window.scrollBy(0, 1);
+                    distance++;
+                    if (distance >= target) { clearInterval(interval); resolve(); }
+                }, 1000 / speed);
+            });
         }
     });
-
-    function scrollSystem(distance, speed) {
-        return new Promise(resolve => {
-            let traveled = 0;
-            let interval = setInterval(() => {
-                window.scrollBy(0, 1);
-                traveled += 1;
-                if (traveled >= distance) {
-                    clearInterval(interval);
-                    resolve();
-                }
-            }, 1000 / speed);
-        });
-    }
 </script>
 </body>
 </html>
