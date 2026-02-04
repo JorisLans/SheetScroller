@@ -3,34 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v5</title>
+    <title>Precision Sheet Scroller v6</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
             --primary: #3498db; --bg: #0f172a; --panel: #1e293b; --accent: #f1c40f; 
-            --measure-a: rgba(46, 204, 113, 0.4); /* Felgroen */
-            --measure-b: rgba(52, 152, 219, 0.2); /* Transparant blauw */
+            --measure-a: rgba(46, 204, 113, 0.4); --measure-b: rgba(52, 152, 219, 0.2);
+            --danger: #e74c3c; --success: #27ae60;
         }
         body { font-family: sans-serif; margin: 0; background: var(--bg); color: white; touch-action: manipulation; }
         
         #ui-layer { position: fixed; top: 0; width: 100%; background: var(--panel); padding: 15px; z-index: 1000; border-bottom: 2px solid var(--primary); display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
         .status-msg { background: var(--primary); padding: 8px 15px; border-radius: 10px; font-size: 14px; font-weight: bold; flex-basis: 100%; text-align: center; margin-bottom: 5px; }
         
-        #pdf-render-area { position: relative; margin-top: 180px; display: flex; flex-direction: column; align-items: center; }
+        #pdf-render-area { position: relative; margin-top: 200px; display: flex; flex-direction: column; align-items: center; }
         canvas { background: white; margin-bottom: 20px; box-shadow: 0 0 30px rgba(0,0,0,0.5); max-width: 98vw; }
         
-        /* Markeringen */
         .system-box { position: absolute; left: 0; width: 100%; border: 3px solid var(--accent); pointer-events: none; z-index: 10; box-sizing: border-box; }
         .measure-block { position: absolute; height: 100%; pointer-events: none; border-right: 2px solid white; z-index: 5; box-sizing: border-box; }
-        
         .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 4px 10px; border-radius: 5px; font-weight: bold; font-size: 16px; z-index: 20; transform: translateY(-50%); }
 
-        .btn { padding: 12px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; }
-        .btn-start { background: #27ae60; color: white; }
+        .btn { padding: 12px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; min-width: 100px; }
+        .btn-start { background: var(--success); color: white; }
+        .btn-pause { background: #e67e22; color: white; display: none; }
+        .btn-stop { background: var(--danger); color: white; display: none; }
         .btn-next { background: var(--accent); color: #000; display: none; }
         .btn-undo { background: #95a5a6; color: white; }
-        .btn-reset { background: #e74c3c; color: white; }
         
+        .control-group { display: flex; align-items: center; gap: 5px; }
         input, select { padding: 10px; border-radius: 6px; border: none; font-size: 14px; background: #334155; color: white; }
     </style>
 </head>
@@ -39,12 +39,16 @@
 <div id="ui-layer">
     <div class="status-msg" id="workflow-step">1. Upload PDF</div>
     <input type="file" id="upload" style="width: 180px;">
-    <div>BPM: <input type="number" id="bpm" value="120" style="width:55px;"></div>
-    <div>Maat: <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option></select></div>
+    
+    <div class="control-group">BPM: <input type="number" id="bpm" value="120" style="width:55px;"></div>
+    <div class="control-group">Maat: <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option></select></div>
+
     <button id="undo-btn" class="btn btn-undo">UNDO</button>
     <button id="next-system-btn" class="btn btn-next">BEVESTIG REGEL</button>
+    
     <button id="start-btn" class="btn btn-start">START</button>
-    <button onclick="location.reload()" class="btn btn-reset">RESET</button>
+    <button id="pause-btn" class="btn btn-pause">PAUZE</button>
+    <button id="stop-btn" class="btn btn-stop">STOP</button>
 </div>
 
 <div id="pdf-render-area"></div>
@@ -57,9 +61,18 @@
     let currentSystem = null;
     let state = 'IDLE'; 
     let visualElements = []; 
+    
+    // Scroll variables
+    let isPaused = false;
+    let isRunning = false;
+    let currentSystemIndex = 0;
+    let scrollAnimationFrame;
 
     const stepEl = document.getElementById('workflow-step');
     const nextBtn = document.getElementById('next-system-btn');
+    const startBtn = document.getElementById('start-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const stopBtn = document.getElementById('stop-btn');
     const container = document.getElementById('pdf-render-area');
 
     document.getElementById('upload').addEventListener('change', async (e) => {
@@ -81,7 +94,7 @@
     });
 
     container.addEventListener('mousedown', (e) => {
-        if (state === 'IDLE') return;
+        if (state === 'IDLE' || isRunning) return;
         const rect = container.getBoundingClientRect();
         const y = (e.pageY) - (rect.top + window.scrollY);
         const x = (e.pageX) - rect.left;
@@ -98,7 +111,6 @@
             box.style.top = currentSystem.top + 'px';
             box.style.height = (y - currentSystem.top) + 'px';
             
-            // Maat-teller toevoegen aan de rechterkant
             const counter = document.createElement('div');
             counter.className = 'measure-counter';
             counter.style.top = (currentSystem.top + (y - currentSystem.top)/2) + 'px';
@@ -127,8 +139,6 @@
             
             container.appendChild(block);
             visualElements.push(block);
-            
-            // Update teller
             currentSystem.counterEl.innerText = `Maten: ${currentSystem.measures.length + 1}`;
         }
     });
@@ -140,7 +150,7 @@
             if (lastEl) {
                 lastEl.remove();
                 if (lastEl.className === 'system-box') { 
-                    visualElements.pop().remove(); // Verwijder ook de counter
+                    visualElements.pop().remove(); 
                     state = 'BOTTOM'; 
                     nextBtn.style.display = 'none'; 
                 }
@@ -166,26 +176,95 @@
         systems.push(currentSystem);
         currentSystem = null; visualElements = []; state = 'TOP';
         nextBtn.style.display = 'none';
-        stepEl.innerText = "Regel klaar! Tik op de BOVENKANT van de volgende regel.";
+        stepEl.innerText = "Regel opgeslagen! Tik op de volgende.";
     });
 
-    document.getElementById('start-btn').addEventListener('click', async () => {
+    // PERFORMANCE LOGIC
+    async function startPerformance() {
         if(systems.length === 0) return;
+        isRunning = true;
+        isPaused = false;
+        startBtn.style.display = 'none';
+        pauseBtn.style.display = 'inline-block';
+        stopBtn.style.display = 'inline-block';
+        
         const bpm = document.getElementById('bpm').value;
         const beats = document.getElementById('time-sig').value;
-        window.scrollTo({top: systems[0].top - 150, behavior: 'smooth'});
-        await new Promise(r => setTimeout(r, 800));
         
-        for (let sys of systems) {
+        window.scrollTo({top: systems[0].top - 150, behavior: 'smooth'});
+        await new Promise(r => setTimeout(r, 1000));
+
+        for (let i = currentSystemIndex; i < systems.length; i++) {
+            if (!isRunning) break;
+            currentSystemIndex = i;
+            const sys = systems[i];
             const totalSeconds = ((sys.measures.length + 1) * beats) / bpm * 60;
             const speed = (sys.bottom - sys.top) / totalSeconds;
-            await new Promise(resolve => {
-                let traveled = 0; let target = sys.bottom - sys.top;
-                let interval = setInterval(() => {
-                    window.scrollBy(0, 1); traveled++;
-                    if (traveled >= target) { clearInterval(interval); resolve(); }
-                }, 1000 / speed);
-            });
+            
+            await scrollDistance(sys.bottom - sys.top, speed);
+        }
+        if (isRunning) stopPerformance();
+    }
+
+    function scrollDistance(target, speed) {
+        return new Promise(resolve => {
+            let traveled = 0;
+            let lastTime = performance.now();
+
+            function step(now) {
+                if (!isRunning) return resolve();
+                if (isPaused) {
+                    lastTime = now;
+                    scrollAnimationFrame = requestAnimationFrame(step);
+                    return;
+                }
+
+                const deltaTime = (now - lastTime) / 1000;
+                lastTime = now;
+                
+                const toScroll = speed * deltaTime;
+                window.scrollBy(0, toScroll);
+                traveled += toScroll;
+
+                if (traveled < target) {
+                    scrollAnimationFrame = requestAnimationFrame(step);
+                } else {
+                    resolve();
+                }
+            }
+            scrollAnimationFrame = requestAnimationFrame(step);
+        });
+    }
+
+    function stopPerformance() {
+        isRunning = false;
+        isPaused = false;
+        currentSystemIndex = 0;
+        cancelAnimationFrame(scrollAnimationFrame);
+        startBtn.style.display = 'inline-block';
+        pauseBtn.style.display = 'none';
+        pauseBtn.innerText = "PAUZE";
+        stopBtn.style.display = 'none';
+        stepEl.innerText = "Gestopt. Klik op START om opnieuw te beginnen.";
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+
+    startBtn.addEventListener('click', startPerformance);
+    
+    pauseBtn.addEventListener('click', () => {
+        isPaused = !isPaused;
+        pauseBtn.innerText = isPaused ? "VERDERGAAN" : "PAUZE";
+        stepEl.innerText = isPaused ? "Gepauzeerd" : "Aan het spelen...";
+    });
+
+    stopBtn.addEventListener('click', stopPerformance);
+
+    // Keyboard support
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+            e.preventDefault();
+            if (!isRunning) startPerformance();
+            else pauseBtn.click();
         }
     });
 </script>
