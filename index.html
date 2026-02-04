@@ -3,17 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Conductor v58 - Orb Edition</title>
+    <title>The Conductor v59 - Duo Chrome Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
             --ink: #121212; --paper: #f8f9fa; --white: #ffffff;
             --border-width: 3px;
-            /* Contrastrijker matenpalet voor maximale duidelijkheid */
-            --m1: rgba(0, 0, 0, 0.04); 
-            --m2: rgba(0, 0, 0, 0.18); 
-            --m3: rgba(0, 0, 0, 0.08); 
-            --m4: rgba(0, 0, 0, 0.25);
+            /* Versimpeld Duo-Systeem voor maximale rust */
+            --measure-light: rgba(0, 0, 0, 0.05); 
+            --measure-dark: rgba(0, 0, 0, 0.18); 
         }
 
         body { 
@@ -21,11 +19,12 @@
             color: var(--ink); overflow-x: hidden; -webkit-tap-highlight-color: transparent;
         }
 
-        /* --- RESPONSIVE HEADER --- */
+        /* --- HEADER --- */
         #master-header { 
             position: fixed; top: 0; width: 100%; z-index: 100000;
             background: rgba(255, 255, 255, 0.98);
             border-bottom: var(--border-width) solid var(--ink);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .status-bar { 
@@ -35,8 +34,7 @@
         }
 
         .nav-container { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
             gap: 10px; padding: 10px; align-items: end; max-width: 1400px; margin: 0 auto;
         }
 
@@ -52,39 +50,46 @@
             padding: 10px 15px; border: var(--border-width) solid var(--ink); border-radius: 0px; 
             background: var(--white); color: var(--ink); cursor: pointer; 
             font-weight: 900; font-family: sans-serif; text-transform: uppercase; font-size: 10px;
-            box-shadow: 3px 3px 0px var(--ink);
+            box-shadow: 3px 3px 0px var(--ink); transition: all 0.2s;
         }
+        .btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0px var(--ink); }
 
-        /* --- PDF VIEWER --- */
-        #content-wrapper { padding-top: 180px; transition: padding 0.3s; }
+        /* --- VIEWER --- */
+        #content-wrapper { padding-top: 180px; }
         @media (min-width: 1024px) { #content-wrapper { padding-top: 130px; } }
 
         #viewer-container { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; }
-        canvas { box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin-bottom: 20px; width: 95% !important; height: auto !important; }
+        canvas { box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin-bottom: 25px; width: 95% !important; height: auto !important; }
 
-        /* --- SCANNING & MARKERS --- */
-        #scanning-line { position: absolute; left: 0; width: 100%; height: 5px; background: #000; z-index: 99999; display: none; pointer-events: none; }
+        /* --- MARKERS --- */
+        #scanning-line { position: absolute; left: 0; width: 100%; height: 6px; background: #000; z-index: 99999; display: none; pointer-events: none; }
         #beat-bubble {
             position: absolute; left: 50%; bottom: -35px; transform: translateX(-50%);
-            background: var(--ink); color: #fff; padding: 5px 12px; font-size: 12px; font-weight: 900; border: 2px solid #fff; white-space: nowrap;
+            background: var(--ink); color: #fff; padding: 5px 12px; font-size: 11px; font-weight: 900; border: 2px solid #fff;
         }
 
-        .system-box { position: absolute; left: 0; width: 100%; border: 5px solid var(--ink); pointer-events: none; z-index: 10; opacity: 0.8; }
-        .measure-block { position: absolute; pointer-events: none; z-index: 5; border-right: 1px solid rgba(0,0,0,0.1); }
+        .system-box { position: absolute; left: 0; width: 100%; border: 5px solid var(--ink); pointer-events: none; z-index: 10; opacity: 0.8; box-sizing: border-box; }
+        
+        .measure-block { 
+            position: absolute; pointer-events: none; z-index: 5; 
+            border-right: 1px solid rgba(0,0,0,0.1);
+            height: 100%; /* Garandeert volledige hoogte binnen de regel */
+        }
+
         .label-tag { 
             position: absolute; right: 10px; background: var(--white); color: var(--ink); 
-            border: 2px solid var(--ink); padding: 5px; font-weight: 900; font-size: 10px; z-index: 20; transform: translateY(-50%);
+            border: 2px solid var(--ink); padding: 5px 10px; font-weight: 900; font-size: 10px; z-index: 20; transform: translateY(-50%);
         }
 
-        /* --- PERFORMANCE ORBS (Pauze & Stop) --- */
+        /* --- ORBS --- */
         .orb-btn {
-            position: fixed; bottom: 25px; width: 55px; height: 55px;
-            border-radius: 50%; border: 3px solid var(--ink);
+            position: fixed; bottom: 25px; width: 60px; height: 60px;
+            border-radius: 50%; border: 4px solid var(--ink);
             display: none; align-items: center; justify-content: center;
-            cursor: pointer; z-index: 120000; font-weight: 900; font-size: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2); transition: transform 0.2s;
+            cursor: pointer; z-index: 120000; font-weight: 900; font-size: 11px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15); transition: transform 0.2s;
+            text-align: center; line-height: 1;
         }
-        .orb-btn:active { transform: scale(0.9); }
         #pause-btn { left: 25px; background: var(--white); color: var(--ink); }
         #stop-btn { right: 25px; background: var(--ink); color: var(--white); }
 
@@ -95,10 +100,10 @@
 <body id="main-body">
 
 <header id="master-header">
-    <div class="status-bar" id="step-info">Conductor Mode v58</div>
+    <div class="status-bar" id="step-info">Universal Conductor v59</div>
     <div class="nav-container">
         <div class="control-group">
-            <span class="input-label">Upload</span>
+            <span class="input-label">Partituur</span>
             <input type="file" id="upload-pdf" style="font-size: 10px; width: 140px;">
         </div>
         
@@ -125,9 +130,9 @@
         </div>
 
         <div class="row-group" style="margin-top: 5px;">
-            <label><span class="input-label">Metro</span><br><input type="checkbox" id="metronome-on" checked></label>
+            <label style="text-align:center"><span class="input-label">Metro</span><br><input type="checkbox" id="metronome-on" checked></label>
             <button id="undo-btn" class="btn">Undo</button>
-            <button id="confirm-btn" class="btn" style="display:none; background: #eee;">OK (<span id="m-count">1</span>)</button>
+            <button id="confirm-btn" class="btn" style="display:none; background: #f0f0f0;">OK (<span id="m-count">1</span>)</button>
             <button id="start-btn" class="btn" style="background: #2ecc71; border-color: #000;">START</button>
         </div>
     </div>
@@ -147,7 +152,6 @@
         pdf: null, systems: [], currentSystem: null,
         state: 'IDLE', isRunning: false, isPaused: false,
         audioCtx: null, visualHistory: [], lastBeat: -1,
-        colors: ['var(--m1)', 'var(--m2)', 'var(--m3)', 'var(--m4)'],
 
         init() {
             this.bindEvents();
@@ -206,9 +210,12 @@
         createUI(by) {
             const c = document.getElementById('viewer-container');
             const box = document.createElement('div'); box.className = 'system-box';
-            box.style.top = this.currentSystem.top + '%'; box.style.height = (by - this.currentSystem.top) + '%';
+            box.style.top = this.currentSystem.top + '%'; 
+            box.style.height = (by - this.currentSystem.top) + '%';
+            
             const lb = document.createElement('div'); lb.className = 'label-tag';
             lb.style.top = ((this.currentSystem.top + by) / 2) + '%';
+            
             c.appendChild(box); c.appendChild(lb);
             this.currentSystem.boxEl = box; this.currentSystem.labelEl = lb;
             this.visualHistory.push({ type: 'BOX', el: box, lb: lb });
@@ -217,13 +224,16 @@
 
         addM(x) {
             const lx = this.currentSystem.measures.length > 0 ? this.currentSystem.measures[this.currentSystem.measures.length - 1] : 0;
-            const mi = this.currentSystem.measures.length;
+            const isDark = this.currentSystem.measures.length % 2 === 1;
             this.currentSystem.measures.push(x);
+            
             const b = document.createElement('div'); b.className = 'measure-block';
-            b.style.top = this.currentSystem.top + '%'; b.style.height = (this.currentSystem.bottom - this.currentSystem.top) + '%';
-            b.style.left = lx + '%'; b.style.width = (x - lx) + '%';
-            b.style.background = this.colors[mi % 4];
-            document.getElementById('viewer-container').appendChild(b);
+            b.style.left = lx + '%'; 
+            b.style.width = (x - lx) + '%';
+            b.style.background = isDark ? 'var(--measure-dark)' : 'var(--measure-light)';
+            
+            // We voegen het blok toe AAN de system-box zodat de hoogte automatisch klopt
+            this.currentSystem.boxEl.appendChild(b);
             this.currentSystem.blocks.push(b);
             this.visualHistory.push({ type: 'MEASURE', el: b });
             this.refreshLb();
@@ -231,12 +241,12 @@
 
         confirmSystem() {
             const lx = this.currentSystem.measures.length > 0 ? this.currentSystem.measures[this.currentSystem.measures.length - 1] : 0;
-            const mi = this.currentSystem.measures.length;
+            const isDark = this.currentSystem.measures.length % 2 === 1;
             const fb = document.createElement('div'); fb.className = 'measure-block';
-            fb.style.top = this.currentSystem.top + '%'; fb.style.height = (this.currentSystem.bottom - this.currentSystem.top) + '%';
             fb.style.left = lx + '%'; fb.style.width = (100 - lx) + '%';
-            fb.style.background = this.colors[mi % 4];
-            document.getElementById('viewer-container').appendChild(fb);
+            fb.style.background = isDark ? 'var(--measure-dark)' : 'var(--measure-light)';
+            
+            this.currentSystem.boxEl.appendChild(fb);
             this.currentSystem.blocks.push(fb);
             this.systems.push(this.currentSystem);
             this.currentSystem = null; this.visualHistory = []; this.state = 'TOP';
@@ -329,7 +339,7 @@
             o.start(); o.stop(this.audioCtx.currentTime + 0.05);
         },
 
-        togglePause() { this.isPaused = !this.isPaused; document.getElementById('pause-btn').innerText = this.isPaused ? "GO" : "PAUZE"; },
+        togglePause() { this.isPaused = !this.isPaused; document.getElementById('pause-btn').innerText = this.isPaused ? "GA" : "PAUZE"; },
 
         stop() {
             this.isRunning = false; this.isPaused = false;
