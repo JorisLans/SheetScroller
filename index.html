@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v49 - Perfect Sync Build</title>
+    <title>Precision Sheet Scroller v50 - Clean Performance Build</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -34,6 +34,7 @@
             position: absolute; left: 0; width: 100%; height: 6px; 
             background: #ff0000; box-shadow: 0 0 20px #ff0000; 
             z-index: 99999; display: none; pointer-events: none;
+            transition: opacity 0.2s;
         }
         #beat-indicator {
             position: absolute; left: 50%; bottom: -35px; transform: translateX(-50%);
@@ -50,22 +51,31 @@
         
         input, select { padding: 8px; border-radius: 6px; background: #334155; color: white; border: 1px solid #475569; }
         
-        /* MARKERS */
-        .system-box, .measure-block, .measure-counter { transition: opacity 0.2s; }
+        /* --- VISIBILITY LOGICA --- */
         
-        /* Verberg alles behalve de actieve maat tijdens het spelen */
+        /* Default: Alles zichtbaar in Edit Mode */
+        .system-box, .measure-block, .measure-counter, #scanning-line { opacity: 1; }
+        .system-box { opacity: 0.4; }
+
+        /* SCHONE VERSIE: Alles onzichtbaar behalve de PDF zelf */
+        body.is-playing #scanning-line,
         body.is-playing .system-box, 
         body.is-playing .measure-counter,
-        body.is-playing .measure-block:not(.active) { opacity: 0 !important; pointer-events: none; }
-        
-        /* Handmatige verberg-modus via de knop */
-        body.hide-markers .system-box,
-        body.hide-markers .measure-block,
-        body.hide-markers .measure-counter { opacity: 0 !important; }
+        body.is-playing .measure-block { opacity: 0 !important; pointer-events: none; }
 
-        .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--accent); pointer-events: none; z-index: 10; opacity: 0.4; }
+        /* BEGELEIDING OPTIE: Als je tijdens het spelen TOCH markeringen wilt zien */
+        body.is-playing.show-markers-active #scanning-line { opacity: 1 !important; }
+        body.is-playing.show-markers-active .measure-block.active { opacity: 1 !important; }
+        
+        /* Handmatige verberg-modus via de knop in Edit Mode */
+        body.hide-markers-manual .system-box,
+        body.hide-markers-manual .measure-block,
+        body.hide-markers-manual .measure-counter { opacity: 0 !important; }
+
+        /* STYLING VAN ELEMENTEN */
+        .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--accent); pointer-events: none; z-index: 10; }
         .measure-block { position: absolute; pointer-events: none; border-right: 2px solid rgba(255,255,255,0.4); z-index: 5; }
-        .measure-block.active { background: rgba(255, 255, 255, 0.4) !important; opacity: 1 !important; z-index: 100; box-shadow: inset 0 0 15px white; }
+        .measure-block.active { background: rgba(255, 255, 255, 0.4); z-index: 100; box-shadow: inset 0 0 15px white; }
         .measure-counter { position: absolute; right: 20px; background: var(--accent); color: black; padding: 4px 10px; border-radius: 4px; font-weight: 900; z-index: 2000; transform: translateY(-50%); }
     </style>
 </head>
@@ -79,7 +89,7 @@
         <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select>
         
         <label>🔊 <input type="checkbox" id="metro-switch" checked></label>
-        <button id="view-toggle-btn" class="btn btn-toggle">Verberg Markeringen</button>
+        <button id="view-toggle-btn" class="btn btn-toggle">Toon Begeleiding</button>
 
         <div style="font-size: 10px;">Glide <input type="range" id="glide-percent" min="0" max="40" value="15" style="width:40px;"></div>
         <button id="undo-btn" class="btn btn-undo">Undo</button>
@@ -128,10 +138,15 @@
         osc.start(); osc.stop(audioCtx.currentTime + 0.08);
     }
 
-    // Markeringen aan/uit knop
+    // De Schone vs Begeleiding Toggle
     document.getElementById('view-toggle-btn').addEventListener('click', (e) => {
-        body.classList.toggle('hide-markers');
-        e.target.innerText = body.classList.contains('hide-markers') ? "Toon Markeringen" : "Verberg Markeringen";
+        if (isRunning) {
+            body.classList.toggle('show-markers-active');
+            e.target.innerText = body.classList.contains('show-markers-active') ? "Naar Schone Versie" : "Toon Begeleiding";
+        } else {
+            body.classList.toggle('hide-markers-manual');
+            e.target.innerText = body.classList.contains('hide-markers-manual') ? "Toon Markeringen" : "Verberg Markeringen";
+        }
     });
 
     document.getElementById('upload').addEventListener('change', async (e) => {
@@ -142,7 +157,7 @@
         container.querySelectorAll('canvas').forEach(c => c.remove());
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
-            const viewport = page.getViewport({ scale: 2.0 });
+            const viewport = page.getPageViewport({ scale: 2.0 });
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width; canvas.height = viewport.height;
             await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
@@ -205,7 +220,6 @@
     });
 
     document.getElementById('next-system-btn').addEventListener('click', () => {
-        // BELANGRIJK: Voeg de laatste maat toe (tot 100%)
         const lastXPct = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
         const block = document.createElement('div'); block.className = 'measure-block';
         block.style.top = currentSystem.topPct + '%'; 
@@ -229,7 +243,6 @@
         if (currentTotalBeat !== lastBeatLogged) { playClick(beatInM === 1); lastBeatLogged = currentTotalBeat; }
         beatDisplay.innerText = `M ${currentMIdx + 1} | B ${beatInM}`;
         
-        // Highlight logica
         systems[sysIdx].visualBlocks.forEach((b, idx) => {
             b.classList.toggle('active', idx === currentMIdx);
         });
@@ -242,6 +255,7 @@
         document.getElementById('ui-layer').classList.add('performance-hidden');
         document.getElementById('perf-controls').style.display = 'flex';
         scanner.style.display = 'block'; beatDisplay.style.display = 'block';
+        document.getElementById('view-toggle-btn').innerText = "Toon Begeleiding";
 
         const bpm = parseInt(document.getElementById('bpm').value);
         const beats = parseInt(document.getElementById('time-sig').value);
@@ -284,12 +298,14 @@
     }
 
     function stopPerformance() {
-        isRunning = false; body.classList.remove('is-playing');
+        isRunning = false; 
+        body.classList.remove('is-playing', 'show-markers-active');
         document.getElementById('ui-layer').classList.remove('performance-hidden');
         document.getElementById('perf-controls').style.display = 'none';
         scanner.style.display = 'none'; beatDisplay.style.display = 'none';
         systems.forEach(s => s.visualBlocks.forEach(b => b.classList.remove('active')));
         cancelAnimationFrame(scrollAnimationFrame);
+        document.getElementById('view-toggle-btn').innerText = body.classList.contains('hide-markers-manual') ? "Toon Markeringen" : "Verberg Markeringen";
     }
 
     document.getElementById('start-btn').addEventListener('click', startPerformance);
