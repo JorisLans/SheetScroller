@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v42 - Full Feature Stable</title>
+    <title>Precision Sheet Scroller v44 - The Complete Stable Build</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -13,6 +13,7 @@
         }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: white; overflow-x: hidden; }
         
+        /* UI HEADER */
         #ui-layer { 
             position: fixed; top: 0; width: 100%; 
             background: var(--panel); border-bottom: 3px solid var(--primary); 
@@ -23,46 +24,63 @@
         .status-msg { background: var(--primary); text-align: center; padding: 6px; font-weight: bold; font-size: 12px; }
         .controls-row { display: flex; gap: 10px; padding: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
         
-        #pdf-render-area { position: relative; width: 100%; margin-top: 110px; display: flex; flex-direction: column; align-items: center; }
+        /* PDF CONTAINER */
+        #pdf-render-area { 
+            position: relative; width: 100%; 
+            padding-top: 140px; /* Ruimte voor header */
+            display: flex; flex-direction: column; align-items: center; 
+            transition: padding-top 0.3s ease;
+        }
+        body.is-playing #pdf-render-area { padding-top: 20px; }
+
         canvas { background: white; margin: 15px 0; width: 100% !important; height: auto !important; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
         
+        /* RODE LIJN & INDICATORS */
         #scanning-line { 
             position: absolute; left: 0; width: 100%; height: 6px; 
             background: #ff0000; box-shadow: 0 0 20px #ff0000; 
             z-index: 99999; display: none; pointer-events: none;
         }
-
         #beat-indicator {
             position: absolute; left: 50%; bottom: -35px; transform: translateX(-50%);
             background: #ff0000; color: white; padding: 4px 14px;
             border-radius: 20px; font-weight: bold; font-size: 14px; white-space: nowrap;
         }
         
+        /* FLOATING CONTROLS */
         #perf-controls { position: fixed; bottom: 25px; right: 25px; z-index: 110000; display: none; gap: 12px; }
 
-        .btn { padding: 10px 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        /* BUTTONS & INPUTS */
+        .btn { padding: 10px 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.2s; }
+        .btn:active { transform: scale(0.95); }
         .btn-start { background: var(--success); color: white; }
         .btn-confirm { background: var(--accent); color: #000; }
         .btn-undo { background: #64748b; color: white; }
         
         input, select { padding: 8px; border-radius: 6px; background: #334155; color: white; border: 1px solid #475569; }
         
+        /* MARKERS */
         .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--accent); pointer-events: none; z-index: 10; opacity: 0.4; }
         .measure-block { position: absolute; pointer-events: none; border-right: 2px solid rgba(255,255,255,0.4); z-index: 5; }
         .measure-block.active { background: rgba(255, 255, 255, 0.4) !important; opacity: 1; z-index: 100; box-shadow: inset 0 0 15px white; }
-        .measure-counter { position: absolute; right: 20px; background: var(--accent); color: black; padding: 4px 10px; border-radius: 4px; font-weight: 900; z-index: 2000; transform: translateY(-50%); }
+        .measure-counter { position: absolute; right: 20px; background: var(--accent); color: black; padding: 4px 10px; border-radius: 4px; font-weight: 900; z-index: 2000; transform: translateY(-50%); box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
     </style>
 </head>
-<body>
+<body id="main-body">
 
 <div id="ui-layer">
     <div class="status-msg" id="workflow-step">1. Upload PDF</div>
     <div class="controls-row">
         <input type="file" id="upload" style="width: 160px;">
         <div>BPM <input type="number" id="bpm" value="120" style="width:55px;"></div>
-        <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select>
-        <div style="background:rgba(0,0,0,0.2); padding:5px; border-radius:5px;">
-            <input type="checkbox" id="metro-switch" checked> <label for="metro-switch" style="font-size:11px;">🔊</label>
+        <select id="time-sig">
+            <option value="4">4/4</option>
+            <option value="3">3/4</option>
+            <option value="2">2/4</option>
+            <option value="6">6/8</option>
+        </select>
+        <div style="background:rgba(0,0,0,0.2); padding:5px; border-radius:5px; display:flex; align-items:center; gap:5px;">
+            <input type="checkbox" id="metro-switch" checked> <label for="metro-switch" style="font-size:11px; cursor:pointer;">🔊</label>
         </div>
         <div style="font-size: 10px;">Glide <input type="range" id="glide-percent" min="0" max="40" value="15" style="width:50px;"></div>
         <button id="undo-btn" class="btn btn-undo">Undo</button>
@@ -97,10 +115,10 @@
     const scanner = document.getElementById('scanning-line');
     const beatDisplay = document.getElementById('beat-indicator');
     const container = document.getElementById('pdf-render-area');
-    const metroSwitch = document.getElementById('metro-switch');
+    const body = document.getElementById('main-body');
 
     function playClick(isFirstBeat) {
-        if (!metroSwitch.checked) return;
+        if (!document.getElementById('metro-switch').checked) return;
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
@@ -113,6 +131,7 @@
 
     document.getElementById('upload').addEventListener('change', async (e) => {
         const file = e.target.files[0];
+        if(!file) return;
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
         container.querySelectorAll('canvas').forEach(c => c.remove());
@@ -149,7 +168,7 @@
             visualHistory.push({ type: 'BOX', el: box, counterEl: counter });
             state = 'MEASURES';
             document.getElementById('next-system-btn').style.display = 'block';
-            document.getElementById('live-m-count').innerText = "1";
+            document.getElementById('workflow-step').innerText = "Klik op maatstrepen";
         } else if (state === 'MEASURES') {
             const lastPct = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
             currentSystem.measures.push(xPct);
@@ -171,8 +190,9 @@
         last.el.remove();
         if (last.type === 'MEASURE') {
             currentSystem.measures.pop(); currentSystem.visualBlocks.pop();
-            document.getElementById('live-m-count').innerText = currentSystem.measures.length + 1;
-            currentSystem.counterEl.innerText = "M: " + (currentSystem.measures.length + 1);
+            const count = currentSystem.measures.length + 1;
+            document.getElementById('live-m-count').innerText = count;
+            currentSystem.counterEl.innerText = "M: " + count;
         } else {
             last.counterEl.remove(); currentSystem = null; state = 'TOP';
             document.getElementById('next-system-btn').style.display = 'none';
@@ -185,11 +205,13 @@
         const block = document.createElement('div'); block.className = 'measure-block';
         block.style.top = currentSystem.top + 'px'; block.style.height = (currentSystem.bottom - currentSystem.top) + 'px';
         block.style.left = lastPct + '%'; block.style.width = (100 - lastPct) + '%';
+        block.style.background = (currentSystem.measures.length + 1) % 2 === 0 ? 'var(--measure-b)' : 'var(--measure-a)';
         container.appendChild(block);
         currentSystem.visualBlocks.push(block);
         systems.push(currentSystem);
         visualHistory = []; currentSystem = null; state = 'TOP';
         document.getElementById('next-system-btn').style.display = 'none';
+        document.getElementById('workflow-step').innerText = "Regel opgeslagen. Klik volgende regel.";
     });
 
     function updateBeatGlobal(elapsedInSys, totalSysDur, numM, beatsPerM, sysIdx) {
@@ -205,7 +227,9 @@
 
     async function startPerformance() {
         if (!systems.length) return;
+        window.scrollTo(0, 0);
         isRunning = true; isPaused = false;
+        body.classList.add('is-playing');
         scanner.style.display = 'block'; beatDisplay.style.display = 'block';
         document.getElementById('ui-layer').classList.add('performance-hidden');
         document.getElementById('perf-controls').style.display = 'flex';
@@ -214,6 +238,8 @@
         const beats = parseInt(document.getElementById('time-sig').value);
         const glideFactor = parseInt(document.getElementById('glide-percent').value) / 100;
 
+        await new Promise(r => setTimeout(r, 400)); 
+
         for (let i = 0; i < systems.length; i++) {
             if (!isRunning) break;
             const sys = systems[i];
@@ -221,14 +247,12 @@
             const totalDur = (numM * beats / bpm) * 60;
             const transDur = (i < systems.length - 1) ? totalDur * glideFactor : 0;
             const scanDur = totalDur - transDur;
-            
             let sysStartTime = performance.now(); lastBeatLogged = -1;
 
             await new Promise(res => {
                 function step(now) {
                     if (!isRunning) return res();
                     if (isPaused) { sysStartTime += (performance.now() - now); scrollAnimationFrame = requestAnimationFrame(step); return; }
-                    
                     const elapsed = (now - sysStartTime) / 1000;
                     updateBeatGlobal(elapsed, totalDur, numM, beats, i);
 
@@ -242,10 +266,9 @@
                     
                     scanner.style.top = currentY + 'px';
                     const lineScreenPos = scanner.getBoundingClientRect().top;
-                    if (lineScreenPos > window.innerHeight * 0.33) window.scrollBy(0, lineScreenPos - window.innerHeight * 0.33);
+                    if (lineScreenPos > window.innerHeight * 0.35) window.scrollBy(0, lineScreenPos - window.innerHeight * 0.35);
 
-                    if (elapsed < totalDur) scrollAnimationFrame = requestAnimationFrame(step);
-                    else res();
+                    if (elapsed < totalDur) scrollAnimationFrame = requestAnimationFrame(step); else res();
                 }
                 scrollAnimationFrame = requestAnimationFrame(step);
             });
@@ -254,7 +277,8 @@
     }
 
     function stopPerformance() {
-        isRunning = false; cancelAnimationFrame(scrollAnimationFrame);
+        isRunning = false; body.classList.remove('is-playing');
+        cancelAnimationFrame(scrollAnimationFrame);
         scanner.style.display = 'none'; beatDisplay.style.display = 'none';
         document.getElementById('ui-layer').classList.remove('performance-hidden');
         document.getElementById('perf-controls').style.display = 'none';
