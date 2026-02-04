@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v29 - Full Restore</title>
+    <title>Precision Sheet Scroller v30 - Absolute Fix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -11,12 +11,13 @@
             --measure-a: rgba(46, 204, 113, 0.3); --measure-b: rgba(52, 152, 219, 0.2);
             --danger: #ef4444; --success: #22c55e; --warning: #f59e0b;
         }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: var(--bg); color: white; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: white; overflow-x: hidden; }
         
+        /* STICKY HEADER */
         #ui-layer { 
             position: sticky; top: 0; width: 100%; 
             background: var(--panel); border-bottom: 3px solid var(--primary); 
-            z-index: 10000; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            z-index: 20000; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
         #ui-layer.performance-hidden { display: none; }
         
@@ -26,32 +27,35 @@
         #pdf-render-area { position: relative; display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 1; }
         canvas { background: white; margin: 20px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 95vw; }
         
-        #perf-controls { position: fixed; bottom: 25px; right: 25px; z-index: 11000; display: none; gap: 12px; }
+        #perf-controls { position: fixed; bottom: 25px; right: 25px; z-index: 21000; display: none; gap: 12px; }
         
-        /* DE RODE LIJN */
+        /* DE RODE LIJN - Nu in de Body met hoogste z-index */
         #scanning-line { 
-            position: absolute; left: 0; width: 100%; height: 5px; 
-            background: #ff0000 !important; box-shadow: 0 0 15px #ff0000; 
-            z-index: 9000; display: none; pointer-events: none; 
+            position: absolute; left: 0; width: 100%; height: 6px; 
+            background: #ff0000; box-shadow: 0 0 20px #ff0000; 
+            z-index: 999999; display: none; pointer-events: none; 
         }
         
-        #limit-line { position: fixed; top: 33.33%; left: 0; width: 100%; height: 1px; border-top: 2px dashed rgba(255,255,255,0.4); z-index: 5000; pointer-events: none; display: none; }
+        #limit-line { position: fixed; top: 33%; left: 0; width: 100%; height: 2px; border-top: 2px dashed rgba(255,255,255,0.5); z-index: 15000; pointer-events: none; display: none; }
 
         .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition: all 0.2s; }
         .btn-start { background: var(--success); color: white; }
         .btn-pause { background: var(--warning); color: white; }
         .btn-stop { background: var(--danger); color: white; }
-        .btn-undo { background: #64748b; color: white; }
         .btn-confirm { background: var(--accent); color: #000; border: 2px solid white; }
         
         input, select { padding: 8px; border-radius: 6px; background: #334155; color: white; border: 1px solid #475569; }
 
+        /* Markeringen */
         .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--accent); pointer-events: none; z-index: 10; opacity: 0.4; }
         .measure-block { position: absolute; pointer-events: none; border-right: 1px solid white; z-index: 5; }
         .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 4px 8px; border-radius: 4px; font-weight: 900; font-size: 11px; z-index: 20; transform: translateY(-50%); }
     </style>
 </head>
 <body>
+
+<div id="scanning-line"></div>
+<div id="limit-line"></div>
 
 <div id="ui-layer">
     <div class="status-msg" id="workflow-step">1. Upload PDF</div>
@@ -71,8 +75,7 @@
     <button id="stop-btn" class="btn btn-stop">STOP</button>
 </div>
 
-<div id="limit-line"></div>
-<div id="pdf-render-area"><div id="scanning-line"></div></div>
+<div id="pdf-render-area"></div>
 
 <script>
     const pdfjsLib = window['pdfjs-dist/build/pdf'];
@@ -94,7 +97,7 @@
         if(!file) return;
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-        container.innerHTML = '<div id="scanning-line"></div>';
+        container.innerHTML = '';
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const viewport = page.getViewport({ scale: 1.5 });
@@ -103,7 +106,7 @@
             await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
             container.appendChild(canvas);
         }
-        state = 'TOP'; document.getElementById('workflow-step').innerText = "Klik op de BOVENKANT";
+        state = 'TOP'; document.getElementById('workflow-step').innerText = "Stap 1: Klik op de BOVENKANT";
     });
 
     container.addEventListener('mousedown', (e) => {
@@ -115,7 +118,7 @@
         if (state === 'TOP') { 
             currentSystem = { top: y, bottom: 0, measures: [] }; 
             state = 'BOTTOM'; 
-            document.getElementById('workflow-step').innerText = "Klik op de ONDERKANT";
+            document.getElementById('workflow-step').innerText = "Stap 2: Klik op de ONDERKANT";
         }
         else if (state === 'BOTTOM') {
             currentSystem.bottom = y;
@@ -129,7 +132,7 @@
             state = 'MEASURES';
             document.getElementById('next-system-btn').style.display = 'inline-block';
             visualElements.push(box, counter);
-            document.getElementById('workflow-step').innerText = "Klik op de maatstrepen";
+            document.getElementById('workflow-step').innerText = "Stap 3: Klik op maatstrepen";
         } else if (state === 'MEASURES') {
             const lastX = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
             currentSystem.measures.push(x);
@@ -147,23 +150,15 @@
         systems.push(currentSystem);
         currentSystem = null; state = 'TOP';
         document.getElementById('next-system-btn').style.display = 'none';
-        document.getElementById('workflow-step').innerText = "Regel bevestigd. Klik BOVENKANT volgende regel";
+        document.getElementById('workflow-step').innerText = "Regel opgeslagen!";
     });
 
-    function doScroll() {
+    function doAutoScroll() {
         const limit = window.innerHeight * 0.33;
-        const scannerRect = scanner.getBoundingClientRect();
-        if (scannerRect.top > limit) {
-            window.scrollBy(0, scannerRect.top - limit);
+        const scannerPos = scanner.getBoundingClientRect().top;
+        if (scannerPos > limit) {
+            window.scrollBy(0, scannerPos - limit);
         }
-    }
-
-    function setVisibility(mode) {
-        const isClean = mode === 'CLEAN';
-        scanner.style.display = isClean ? 'none' : 'block';
-        document.querySelectorAll('.system-box, .measure-block, .measure-counter').forEach(el => {
-            el.style.visibility = isClean ? 'hidden' : 'visible';
-        });
     }
 
     async function startPerformance() {
@@ -175,11 +170,17 @@
         document.getElementById('perf-controls').style.display = 'flex';
         document.getElementById('limit-line').style.display = (mode === 'CLEAN' ? 'none' : 'block');
         scanner.style.display = 'block';
-        setVisibility(mode);
+
+        // Verberg markeringen in CLEAN mode
+        if(mode === 'CLEAN') {
+            document.querySelectorAll('.system-box, .measure-block, .measure-counter').forEach(el => el.style.display = 'none');
+            scanner.style.opacity = "0.7";
+        }
 
         const bpm = parseInt(document.getElementById('bpm').value);
         const beats = parseInt(document.getElementById('time-sig').value);
 
+        // Scroll naar de startpositie
         window.scrollTo({top: systems[0].top - 50, behavior: 'smooth'});
         await new Promise(r => setTimeout(r, 600));
 
@@ -190,15 +191,19 @@
             const speed = (sys.bottom - sys.top) / duration;
 
             await new Promise(res => {
-                let start = performance.now();
+                let startTime = performance.now();
                 function step(now) {
                     if (!isRunning) return res();
-                    if (isPaused) { start += (performance.now() - now); scrollAnimationFrame = requestAnimationFrame(step); return; }
-                    const elapsed = (now - start) / 1000;
+                    if (isPaused) { startTime += (performance.now() - now); scrollAnimationFrame = requestAnimationFrame(step); return; }
+                    
+                    const elapsed = (now - startTime) / 1000;
                     const pos = Math.min(sys.top + (elapsed * speed), sys.bottom);
                     
-                    scanner.style.top = pos + 'px';
-                    doScroll();
+                    // Update positie van rode lijn t.o.v. de hele document-lengte
+                    const containerRect = container.getBoundingClientRect();
+                    scanner.style.top = (pos + containerRect.top + window.scrollY) + 'px';
+                    
+                    doAutoScroll();
                     
                     if (elapsed < duration) scrollAnimationFrame = requestAnimationFrame(step); else res();
                 }
@@ -214,13 +219,12 @@
         document.getElementById('perf-controls').style.display = 'none';
         scanner.style.display = 'none';
         document.getElementById('limit-line').style.display = 'none';
-        setVisibility('FULL');
+        document.querySelectorAll('.system-box, .measure-block, .measure-counter').forEach(el => el.style.display = 'block');
     }
 
     document.getElementById('undo-btn').addEventListener('click', () => {
         const last = visualElements.pop();
         if (last) last.remove();
-        if (state === 'MEASURES' && currentSystem.measures.length > 0) currentSystem.measures.pop();
     });
 
     document.getElementById('start-btn').addEventListener('click', startPerformance);
