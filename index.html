@@ -3,92 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v51 - Stability Fix</title>
+    <title>Precision Sheet Scroller v52 - Dual Playback Modes</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
             --primary: #3498db; --bg: #0f172a; --panel: #1e293b; --accent: #f1c40f; 
             --measure-a: rgba(46, 204, 113, 0.25); --measure-b: rgba(52, 152, 219, 0.15);
-            --danger: #ef4444; --success: #22c55e; --warning: #f59e0b;
+            --danger: #ef4444; --success: #22c55e;
         }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: white; overflow-x: hidden; }
         
         #ui-layer { 
             position: fixed; top: 0; width: 100%; 
             background: var(--panel); border-bottom: 3px solid var(--primary); 
-            z-index: 100000; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            z-index: 100000;
         }
-        #ui-layer.performance-hidden { visibility: hidden; pointer-events: none; }
+        #ui-layer.performance-hidden { visibility: hidden; }
         
-        .status-msg { background: var(--primary); text-align: center; padding: 6px; font-weight: bold; font-size: 12px; }
         .controls-row { display: flex; gap: 10px; padding: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
         
-        #pdf-render-area { 
-            position: relative; width: 100%; padding-top: 140px; 
-            display: flex; flex-direction: column; align-items: center; 
-        }
-
+        #pdf-render-area { position: relative; width: 100%; padding-top: 140px; display: flex; flex-direction: column; align-items: center; }
         canvas { background: white; margin: 15px 0; width: 100% !important; height: auto !important; }
         
         #scanning-line { 
-            position: absolute; left: 0; width: 100%; height: 6px; 
-            background: #ff0000; box-shadow: 0 0 20px #ff0000; 
+            position: absolute; left: 0; width: 100%; height: 5px; 
+            background: #ff0000; box-shadow: 0 0 15px #ff0000; 
             z-index: 99999; display: none; pointer-events: none;
         }
+
+        /* --- PLAYBACK MODES LOGICA --- */
         
-        /* --- PERFORMANCE / VIEW STATES --- */
-        
-        /* Default Edit Mode: Alles zichtbaar */
-        .system-box, .measure-block, .measure-counter { opacity: 1; pointer-events: none; }
-        .system-box { opacity: 0.4; }
+        /* Tijdens Editen: alles zichtbaar */
+        .system-box, .measure-block, .measure-counter { opacity: 1; transition: opacity 0.2s; }
+        .system-box { opacity: 0.4; border: 2px solid var(--accent); }
 
-        /* SCHONE VERSIE (Tijdens spelen) */
-        body.is-playing #scanning-line { opacity: 0; }
-        body.is-playing .system-box, 
-        body.is-playing .measure-counter,
-        body.is-playing .measure-block { opacity: 0 !important; }
+        /* SCHONE MODUS ACTIEF */
+        body.play-clean #scanning-line,
+        body.play-clean .system-box, 
+        body.play-clean .measure-counter,
+        body.play-clean .measure-block { opacity: 0 !important; }
 
-        /* BEGELEIDING ACTIEF (Tijdens spelen) */
-        body.is-playing.show-markers-active #scanning-line { opacity: 1; }
-        body.is-playing.show-markers-active .measure-block.active { opacity: 1 !important; }
+        /* BEGELEIDING MODUS ACTIEF */
+        body.play-guide .system-box,
+        body.play-guide .measure-counter { opacity: 0.1; } /* Subtiel op achtergrond */
+        body.play-guide .measure-block { opacity: 0; } 
+        body.play-guide .measure-block.active { opacity: 1 !important; background: rgba(255, 255, 255, 0.4); }
+        body.play-guide #scanning-line { opacity: 1 !important; }
 
-        /* HANDMATIG VERBERGEN (Edit Mode) */
-        body.hide-markers-manual .system-box,
-        body.hide-markers-manual .measure-block,
-        body.hide-markers-manual .measure-counter { opacity: 0 !important; }
-
-        .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--accent); z-index: 10; }
-        .measure-block { position: absolute; border-right: 2px solid rgba(255,255,255,0.4); z-index: 5; }
-        .measure-block.active { background: rgba(255, 255, 255, 0.4); z-index: 100; box-shadow: inset 0 0 15px white; }
-        .measure-counter { position: absolute; right: 20px; background: var(--accent); color: black; padding: 4px 10px; border-radius: 4px; font-weight: 900; z-index: 2000; transform: translateY(-50%); }
+        /* Algemene styles */
+        .system-box { position: absolute; left: 0; width: 100%; pointer-events: none; z-index: 10; }
+        .measure-block { position: absolute; pointer-events: none; border-right: 2px solid rgba(255,255,255,0.3); z-index: 5; }
+        .measure-counter { position: absolute; right: 20px; background: var(--accent); color: black; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; z-index: 20; transform: translateY(-50%); }
 
         #perf-controls { position: fixed; bottom: 25px; right: 25px; z-index: 110000; display: none; gap: 12px; }
-        .btn { padding: 10px 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 12px; }
-        input, select { padding: 8px; border-radius: 6px; background: #334155; color: white; border: 1px solid #475569; }
+        .btn { padding: 10px 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        select, input { padding: 8px; border-radius: 6px; background: #334155; color: white; border: 1px solid #475569; }
+        .mode-selector { background: #1e293b; border: 2px solid var(--primary); color: white; font-weight: bold; }
     </style>
 </head>
 <body id="main-body">
 
 <div id="ui-layer">
-    <div class="status-msg" id="workflow-step">1. Upload PDF</div>
     <div class="controls-row">
         <input type="file" id="upload" style="width: 150px;">
         <div>BPM <input type="number" id="bpm" value="120" style="width:50px;"></div>
-        <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select>
-        <label>🔊 <input type="checkbox" id="metro-switch" checked></label>
+        <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option></select>
         
-        <button id="view-toggle-btn" class="btn" style="background:#475569; color:white;">Verberg Markeringen</button>
+        <select id="playback-mode" class="mode-selector">
+            <option value="guide">Modus: Begeleiding</option>
+            <option value="clean">Modus: Schoon</option>
+        </select>
 
-        <div style="font-size: 10px;">Glide <input type="range" id="glide-percent" min="0" max="40" value="15" style="width:40px;"></div>
+        <label title="Metronoom">🔊 <input type="checkbox" id="metro-switch" checked></label>
         <button id="undo-btn" class="btn" style="background:#64748b; color:white;">Undo</button>
-        <button id="next-system-btn" class="btn" style="display:none; background:var(--accent); color:black;">Bevestig (<span id="live-m-count">1</span>)</button>
+        <button id="next-system-btn" class="btn" style="display:none; background:var(--accent); color:black;">Bevestig</button>
         <button id="start-btn" class="btn" style="background:var(--success); color:white;">START</button>
     </div>
 </div>
 
 <div id="perf-controls">
-    <button id="pause-btn" class="btn" style="background:var(--warning); color:white;">PAUZE</button>
-    <button id="stop-btn" class="btn" style="background:var(--danger); color:white;">STOP</button>
+    <button id="pause-btn" class="btn" style="background:#f59e0b; color:white;">PAUZE</button>
+    <button id="stop-btn" class="btn" style="background:#ef4444; color:white;">STOP</button>
 </div>
 
 <div id="pdf-render-area">
@@ -125,31 +120,20 @@
         osc.start(); osc.stop(audioCtx.currentTime + 0.08);
     }
 
-    document.getElementById('view-toggle-btn').addEventListener('click', (e) => {
-        if (isRunning) {
-            body.classList.toggle('show-markers-active');
-            e.target.innerText = body.classList.contains('show-markers-active') ? "Naar Schone Versie" : "Toon Begeleiding";
-        } else {
-            body.classList.toggle('hide-markers-manual');
-            e.target.innerText = body.classList.contains('hide-markers-manual') ? "Toon Markeringen" : "Verberg Markeringen";
-        }
-    });
-
     document.getElementById('upload').addEventListener('change', async (e) => {
         const file = e.target.files[0];
-        if(!file) return;
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
         container.querySelectorAll('canvas').forEach(c => c.remove());
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
-            const viewport = page.getViewport({ scale: 2.0 }); // GEFIXTE FUNCTIE
+            const viewport = page.getViewport({ scale: 2.0 });
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width; canvas.height = viewport.height;
             await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
             container.appendChild(canvas);
         }
-        state = 'TOP'; document.getElementById('workflow-step').innerText = "Klik BOVENKANT regel";
+        state = 'TOP';
     });
 
     container.addEventListener('mousedown', (e) => {
@@ -169,7 +153,7 @@
             box.style.top = currentSystem.topPct + '%'; box.style.height = (yPct - currentSystem.topPct) + '%';
             const counter = document.createElement('div'); counter.className = 'measure-counter';
             counter.style.top = ((currentSystem.topPct + yPct) / 2) + '%';
-            counter.innerText = "M: 1";
+            counter.innerText = "Regel " + (systems.length + 1);
             container.appendChild(box); container.appendChild(counter);
             currentSystem.boxEl = box; currentSystem.counterEl = counter;
             visualHistory.push({ type: 'BOX', el: box, counterEl: counter });
@@ -186,8 +170,6 @@
             container.appendChild(block);
             currentSystem.visualBlocks.push(block);
             visualHistory.push({ type: 'MEASURE', el: block });
-            document.getElementById('live-m-count').innerText = currentSystem.measures.length + 1;
-            currentSystem.counterEl.innerText = "M: " + (currentSystem.measures.length + 1);
         }
     });
 
@@ -207,33 +189,40 @@
 
     function updateBeatGlobal(elapsedInSys, totalSysDur, numM, beatsPerM, sysIdx) {
         const progress = Math.min(elapsedInSys / totalSysDur, 0.999);
-        const totalBeats = numM * beatsPerM;
-        const currentTotalBeat = Math.floor(progress * totalBeats);
+        const currentTotalBeat = Math.floor(progress * (numM * beatsPerM));
         const currentMIdx = Math.floor(currentTotalBeat / beatsPerM);
         const beatInM = (currentTotalBeat % beatsPerM) + 1;
-        if (currentTotalBeat !== lastBeatLogged) { playClick(beatInM === 1); lastBeatLogged = currentTotalBeat; }
-        systems[sysIdx].visualBlocks.forEach((b, idx) => b.classList.toggle('active', idx === currentMIdx));
+        
+        if (currentTotalBeat !== lastBeatLogged) { 
+            playClick(beatInM === 1); 
+            lastBeatLogged = currentTotalBeat; 
+        }
+        
+        systems[sysIdx].visualBlocks.forEach((b, idx) => {
+            b.classList.toggle('active', idx === currentMIdx);
+        });
     }
 
     async function startPerformance() {
         if (!systems.length) return;
         isRunning = true; isPaused = false;
-        body.classList.add('is-playing');
+        
+        // Mode bepalen
+        const mode = document.getElementById('playback-mode').value;
+        body.classList.add(mode === 'guide' ? 'play-guide' : 'play-clean');
+        
         document.getElementById('ui-layer').classList.add('performance-hidden');
         document.getElementById('perf-controls').style.display = 'flex';
         scanner.style.display = 'block';
 
         const bpm = parseInt(document.getElementById('bpm').value);
         const beats = parseInt(document.getElementById('time-sig').value);
-        const glideFactor = parseInt(document.getElementById('glide-percent').value) / 100;
 
         for (let i = 0; i < systems.length; i++) {
             if (!isRunning) break;
             const sys = systems[i];
             const numM = sys.visualBlocks.length;
             const totalDur = (numM * beats / bpm) * 60;
-            const transDur = (i < systems.length - 1) ? totalDur * glideFactor : 0;
-            const scanDur = totalDur - transDur;
             let sysStartTime = performance.now(); lastBeatLogged = -1;
 
             await new Promise(res => {
@@ -243,15 +232,11 @@
                     const elapsed = (now - sysStartTime) / 1000;
                     updateBeatGlobal(elapsed, totalDur, numM, beats, i);
 
-                    let currentYPct = (elapsed <= scanDur) 
-                        ? sys.topPct + (elapsed * ((sys.bottomPct - sys.topPct) / scanDur))
-                        : (i < systems.length - 1) 
-                            ? sys.bottomPct + (systems[i+1].topPct - sys.bottomPct) * ((elapsed - scanDur) / transDur)
-                            : sys.bottomPct;
-                    
+                    const currentYPct = sys.topPct + (Math.min(elapsed/totalDur, 1) * (sys.bottomPct - sys.topPct));
                     scanner.style.top = currentYPct + '%';
+                    
                     const lineScreenPos = scanner.getBoundingClientRect().top;
-                    if (lineScreenPos > window.innerHeight * 0.4) window.scrollBy(0, lineScreenPos - window.innerHeight * 0.4);
+                    if (lineScreenPos > window.innerHeight * 0.45) window.scrollBy(0, lineScreenPos - window.innerHeight * 0.45);
 
                     if (elapsed < totalDur) scrollAnimationFrame = requestAnimationFrame(step); else res();
                 }
@@ -262,7 +247,8 @@
     }
 
     function stopPerformance() {
-        isRunning = false; body.classList.remove('is-playing', 'show-markers-active');
+        isRunning = false; 
+        body.classList.remove('play-guide', 'play-clean');
         document.getElementById('ui-layer').classList.remove('performance-hidden');
         document.getElementById('perf-controls').style.display = 'none';
         scanner.style.display = 'none';
@@ -281,7 +267,6 @@
         last.el.remove();
         if (last.type === 'MEASURE') {
             currentSystem.measures.pop(); currentSystem.visualBlocks.pop();
-            document.getElementById('live-m-count').innerText = currentSystem.measures.length + 1;
         } else {
             last.counterEl.remove(); currentSystem = null; state = 'TOP';
             document.getElementById('next-system-btn').style.display = 'none';
