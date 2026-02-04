@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v45 - Absolute Alignment Fix</title>
+    <title>Precision Sheet Scroller v48 - Clean View Toggle</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -17,21 +17,18 @@
             position: fixed; top: 0; width: 100%; 
             background: var(--panel); border-bottom: 3px solid var(--primary); 
             z-index: 100000; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            height: 110px; /* Vaste hoogte voor consistentie */
         }
         #ui-layer.performance-hidden { visibility: hidden; pointer-events: none; }
         
         .status-msg { background: var(--primary); text-align: center; padding: 6px; font-weight: bold; font-size: 12px; }
         .controls-row { display: flex; gap: 10px; padding: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
         
-        /* PDF CONTAINER - Vaste padding die NOOIT verandert */
         #pdf-render-area { 
-            position: relative; width: 100%; 
-            padding-top: 120px; 
+            position: relative; width: 100%; padding-top: 140px; 
             display: flex; flex-direction: column; align-items: center; 
         }
 
-        canvas { background: white; margin: 15px 0; width: 100% !important; height: auto !important; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+        canvas { background: white; margin: 15px 0; width: 100% !important; height: auto !important; }
         
         #scanning-line { 
             position: absolute; left: 0; width: 100%; height: 6px; 
@@ -40,8 +37,7 @@
         }
         #beat-indicator {
             position: absolute; left: 50%; bottom: -35px; transform: translateX(-50%);
-            background: #ff0000; color: white; padding: 4px 14px;
-            border-radius: 20px; font-weight: bold; font-size: 14px; white-space: nowrap;
+            background: #ff0000; color: white; padding: 4px 14px; border-radius: 20px; font-weight: bold; font-size: 14px;
         }
         
         #perf-controls { position: fixed; bottom: 25px; right: 25px; z-index: 110000; display: none; gap: 12px; }
@@ -53,26 +49,38 @@
         
         input, select { padding: 8px; border-radius: 6px; background: #334155; color: white; border: 1px solid #475569; }
         
+        /* MARKERS & CLEAN VIEW LOGICA */
+        .system-box, .measure-block, .measure-counter { transition: opacity 0.3s ease; }
+        
+        /* Wanneer we 'is-playing' zijn, verbergen we de vaste markeringen */
+        body.is-playing .system-box, 
+        body.is-playing .measure-counter,
+        body.is-playing .measure-block:not(.active) { opacity: 0 !important; }
+        
+        /* Optioneel: verberg ook de actieve maat voor een écht schone weergave */
+        body.ultra-clean .measure-block.active { opacity: 0 !important; }
+
         .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--accent); pointer-events: none; z-index: 10; opacity: 0.4; }
         .measure-block { position: absolute; pointer-events: none; border-right: 2px solid rgba(255,255,255,0.4); z-index: 5; }
-        .measure-block.active { background: rgba(255, 255, 255, 0.4) !important; opacity: 1; z-index: 100; box-shadow: inset 0 0 15px white; }
+        .measure-block.active { background: rgba(255, 255, 255, 0.4) !important; opacity: 1 !important; z-index: 100; box-shadow: inset 0 0 15px white; }
         .measure-counter { position: absolute; right: 20px; background: var(--accent); color: black; padding: 4px 10px; border-radius: 4px; font-weight: 900; z-index: 2000; transform: translateY(-50%); }
     </style>
 </head>
-<body>
+<body id="main-body">
 
 <div id="ui-layer">
     <div class="status-msg" id="workflow-step">1. Upload PDF</div>
     <div class="controls-row">
-        <input type="file" id="upload" style="width: 160px;">
-        <div>BPM <input type="number" id="bpm" value="120" style="width:55px;"></div>
-        <select id="time-sig">
-            <option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option>
-        </select>
-        <div style="background:rgba(0,0,0,0.2); padding:5px; border-radius:5px;">
-            <input type="checkbox" id="metro-switch" checked> <label for="metro-switch" style="font-size:11px;">🔊</label>
+        <input type="file" id="upload" style="width: 150px;">
+        <div>BPM <input type="number" id="bpm" value="120" style="width:50px;"></div>
+        <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select>
+        
+        <div style="background:rgba(255,255,255,0.1); padding:5px; border-radius:5px; display:flex; gap:8px; align-items:center;">
+            <label style="font-size:11px;">🔊 <input type="checkbox" id="metro-switch" checked></label>
+            <label style="font-size:11px;">👁️ <input type="checkbox" id="view-toggle" checked></label>
         </div>
-        <div style="font-size: 10px;">Glide <input type="range" id="glide-percent" min="0" max="40" value="15" style="width:50px;"></div>
+
+        <div style="font-size: 10px;">Glide <input type="range" id="glide-percent" min="0" max="40" value="15" style="width:40px;"></div>
         <button id="undo-btn" class="btn btn-undo">Undo</button>
         <button id="next-system-btn" class="btn btn-confirm" style="display:none;">Bevestig (<span id="live-m-count">1</span>)</button>
         <button id="start-btn" class="btn btn-start">START</button>
@@ -92,7 +100,7 @@
     const pdfjsLib = window['pdfjs-dist/build/pdf'];
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
-    let systems = [];
+    let systems = []; 
     let currentSystem = null;
     let state = 'IDLE'; 
     let isPaused = false;
@@ -105,6 +113,7 @@
     const scanner = document.getElementById('scanning-line');
     const beatDisplay = document.getElementById('beat-indicator');
     const container = document.getElementById('pdf-render-area');
+    const body = document.getElementById('main-body');
     const uiLayer = document.getElementById('ui-layer');
 
     function playClick(isFirstBeat) {
@@ -118,6 +127,13 @@
         gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.08);
         osc.start(); osc.stop(audioCtx.currentTime + 0.08);
     }
+
+    // Toggle markeringen handmatig (Edit Mode view)
+    document.getElementById('view-toggle').addEventListener('change', (e) => {
+        container.style.opacity = e.target.checked ? "1" : "1"; 
+        const boxes = document.querySelectorAll('.system-box, .measure-block, .measure-counter');
+        boxes.forEach(b => b.style.visibility = e.target.checked ? 'visible' : 'hidden');
+    });
 
     document.getElementById('upload').addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -139,18 +155,20 @@
     container.addEventListener('mousedown', (e) => {
         if (state === 'IDLE' || isRunning) return;
         const rect = container.getBoundingClientRect();
-        const relativeY = e.pageY - (rect.top + window.scrollY);
-        const xPct = ((e.pageX - rect.left) / rect.width) * 100;
+        const cHeight = container.scrollHeight;
+        const cWidth = rect.width;
+        const yPct = ((e.pageY - (rect.top + window.scrollY)) / cHeight) * 100;
+        const xPct = ((e.pageX - rect.left) / cWidth) * 100;
 
         if (state === 'TOP') {
-            currentSystem = { top: relativeY, bottom: 0, measures: [], visualBlocks: [] };
+            currentSystem = { topPct: yPct, bottomPct: 0, measures: [], visualBlocks: [] };
             state = 'BOTTOM';
         } else if (state === 'BOTTOM') {
-            currentSystem.bottom = relativeY;
+            currentSystem.bottomPct = yPct;
             const box = document.createElement('div'); box.className = 'system-box';
-            box.style.top = currentSystem.top + 'px'; box.style.height = (relativeY - currentSystem.top) + 'px';
+            box.style.top = currentSystem.topPct + '%'; box.style.height = (yPct - currentSystem.topPct) + '%';
             const counter = document.createElement('div'); counter.className = 'measure-counter';
-            counter.style.top = (currentSystem.top + (relativeY - currentSystem.top)/2) + 'px';
+            counter.style.top = ((currentSystem.topPct + yPct) / 2) + '%';
             counter.innerText = "M: 1";
             container.appendChild(box); container.appendChild(counter);
             currentSystem.boxEl = box; currentSystem.counterEl = counter;
@@ -158,11 +176,12 @@
             state = 'MEASURES';
             document.getElementById('next-system-btn').style.display = 'block';
         } else if (state === 'MEASURES') {
-            const lastPct = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
+            const lastXPct = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
             currentSystem.measures.push(xPct);
             const block = document.createElement('div'); block.className = 'measure-block';
-            block.style.top = currentSystem.top + 'px'; block.style.height = (currentSystem.bottom - currentSystem.top) + 'px';
-            block.style.left = lastPct + '%'; block.style.width = (xPct - lastPct) + '%';
+            block.style.top = currentSystem.topPct + '%'; 
+            block.style.height = (currentSystem.bottomPct - currentSystem.topPct) + '%';
+            block.style.left = lastXPct + '%'; block.style.width = (xPct - lastXPct) + '%';
             block.style.background = currentSystem.measures.length % 2 === 0 ? 'var(--measure-b)' : 'var(--measure-a)';
             container.appendChild(block);
             currentSystem.visualBlocks.push(block);
@@ -178,9 +197,8 @@
         last.el.remove();
         if (last.type === 'MEASURE') {
             currentSystem.measures.pop(); currentSystem.visualBlocks.pop();
-            const count = currentSystem.measures.length + 1;
-            document.getElementById('live-m-count').innerText = count;
-            currentSystem.counterEl.innerText = "M: " + count;
+            document.getElementById('live-m-count').innerText = currentSystem.measures.length + 1;
+            currentSystem.counterEl.innerText = "M: " + (currentSystem.measures.length + 1);
         } else {
             last.counterEl.remove(); currentSystem = null; state = 'TOP';
             document.getElementById('next-system-btn').style.display = 'none';
@@ -188,11 +206,11 @@
     });
 
     document.getElementById('next-system-btn').addEventListener('click', () => {
-        const lastPct = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
+        const lastXPct = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
         const block = document.createElement('div'); block.className = 'measure-block';
-        block.style.top = currentSystem.top + 'px'; block.style.height = (currentSystem.bottom - currentSystem.top) + 'px';
-        block.style.left = lastPct + '%'; block.style.width = (100 - lastPct) + '%';
-        block.style.background = (currentSystem.measures.length + 1) % 2 === 0 ? 'var(--measure-b)' : 'var(--measure-a)';
+        block.style.top = currentSystem.topPct + '%'; 
+        block.style.height = (currentSystem.bottomPct - currentSystem.topPct) + '%';
+        block.style.left = lastXPct + '%'; block.style.width = (100 - lastXPct) + '%';
         container.appendChild(block);
         currentSystem.visualBlocks.push(block);
         systems.push(currentSystem);
@@ -214,8 +232,7 @@
     async function startPerformance() {
         if (!systems.length) return;
         isRunning = true; isPaused = false;
-        
-        // UI verbergen zonder de layout te veranderen
+        body.classList.add('is-playing');
         uiLayer.classList.add('performance-hidden');
         document.getElementById('perf-controls').style.display = 'flex';
         scanner.style.display = 'block'; beatDisplay.style.display = 'block';
@@ -223,12 +240,6 @@
         const bpm = parseInt(document.getElementById('bpm').value);
         const beats = parseInt(document.getElementById('time-sig').value);
         const glideFactor = parseInt(document.getElementById('glide-percent').value) / 100;
-
-        // Eerste scroll naar de eerste aangeduide regel
-        const firstTop = systems[0].top + container.getBoundingClientRect().top + window.scrollY;
-        window.scrollTo({ top: firstTop - 100, behavior: 'smooth' });
-
-        await new Promise(r => setTimeout(r, 600)); 
 
         for (let i = 0; i < systems.length; i++) {
             if (!isRunning) break;
@@ -246,21 +257,17 @@
                     const elapsed = (now - sysStartTime) / 1000;
                     updateBeatGlobal(elapsed, totalDur, numM, beats, i);
 
-                    let currentY;
+                    let currentYPct;
                     if (elapsed <= scanDur) {
-                        currentY = sys.top + (elapsed * ((sys.bottom - sys.top) / scanDur));
+                        currentYPct = sys.topPct + (elapsed * ((sys.bottomPct - sys.topPct) / scanDur));
                     } else if (i < systems.length - 1) {
                         const p = (elapsed - scanDur) / transDur;
-                        currentY = sys.bottom + (systems[i+1].top - sys.bottom) * p;
-                    } else { currentY = sys.bottom; }
+                        currentYPct = sys.bottomPct + (systems[i+1].topPct - sys.bottomPct) * p;
+                    } else { currentYPct = sys.bottomPct; }
                     
-                    scanner.style.top = currentY + 'px';
-                    
-                    // Relatieve scroll logica
+                    scanner.style.top = currentYPct + '%';
                     const lineScreenPos = scanner.getBoundingClientRect().top;
-                    if (lineScreenPos > window.innerHeight * 0.4) {
-                        window.scrollBy(0, lineScreenPos - window.innerHeight * 0.4);
-                    }
+                    if (lineScreenPos > window.innerHeight * 0.4) window.scrollBy(0, lineScreenPos - window.innerHeight * 0.4);
 
                     if (elapsed < totalDur) scrollAnimationFrame = requestAnimationFrame(step); else res();
                 }
@@ -271,7 +278,7 @@
     }
 
     function stopPerformance() {
-        isRunning = false;
+        isRunning = false; body.classList.remove('is-playing');
         uiLayer.classList.remove('performance-hidden');
         document.getElementById('perf-controls').style.display = 'none';
         scanner.style.display = 'none'; beatDisplay.style.display = 'none';
