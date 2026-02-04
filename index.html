@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v6</title>
+    <title>Precision Sheet Scroller v7</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -21,7 +21,9 @@
         
         .system-box { position: absolute; left: 0; width: 100%; border: 3px solid var(--accent); pointer-events: none; z-index: 10; box-sizing: border-box; }
         .measure-block { position: absolute; height: 100%; pointer-events: none; border-right: 2px solid white; z-index: 5; box-sizing: border-box; }
-        .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 4px 10px; border-radius: 5px; font-weight: bold; font-size: 16px; z-index: 20; transform: translateY(-50%); }
+        
+        /* Verbeterde teller badge */
+        .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 6px 12px; border-radius: 8px; font-weight: bold; font-size: 14px; z-index: 20; transform: translateY(-50%); box-shadow: 0 4px 6px rgba(0,0,0,0.3); line-height: 1.2; text-align: center; }
 
         .btn { padding: 12px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; min-width: 100px; }
         .btn-start { background: var(--success); color: white; }
@@ -41,7 +43,7 @@
     <input type="file" id="upload" style="width: 180px;">
     
     <div class="control-group">BPM: <input type="number" id="bpm" value="120" style="width:55px;"></div>
-    <div class="control-group">Maat: <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option></select></div>
+    <div class="control-group">Maat: <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select></div>
 
     <button id="undo-btn" class="btn btn-undo">UNDO</button>
     <button id="next-system-btn" class="btn btn-next">BEVESTIG REGEL</button>
@@ -62,7 +64,6 @@
     let state = 'IDLE'; 
     let visualElements = []; 
     
-    // Scroll variables
     let isPaused = false;
     let isRunning = false;
     let currentSystemIndex = 0;
@@ -74,6 +75,7 @@
     const pauseBtn = document.getElementById('pause-btn');
     const stopBtn = document.getElementById('stop-btn');
     const container = document.getElementById('pdf-render-area');
+    const timeSigEl = document.getElementById('time-sig');
 
     document.getElementById('upload').addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -92,6 +94,14 @@
         state = 'TOP';
         stepEl.innerText = "2. Tik op de BOVENKANT van de regel";
     });
+
+    function updateCounterLabel() {
+        if (!currentSystem || !currentSystem.counterEl) return;
+        const beatsPerMeasure = parseInt(timeSigEl.value);
+        const measureCount = currentSystem.measures.length + 1;
+        const totalBeats = measureCount * beatsPerMeasure;
+        currentSystem.counterEl.innerHTML = `Maten: ${measureCount}<br><small>Beats: ${totalBeats}</small>`;
+    }
 
     container.addEventListener('mousedown', (e) => {
         if (state === 'IDLE' || isRunning) return;
@@ -114,11 +124,11 @@
             const counter = document.createElement('div');
             counter.className = 'measure-counter';
             counter.style.top = (currentSystem.top + (y - currentSystem.top)/2) + 'px';
-            counter.innerText = "Maten: 1";
-            currentSystem.counterEl = counter;
             
             container.appendChild(box);
             container.appendChild(counter);
+            currentSystem.counterEl = counter;
+            updateCounterLabel();
             visualElements.push(box, counter);
             
             state = 'MEASURES';
@@ -139,7 +149,7 @@
             
             container.appendChild(block);
             visualElements.push(block);
-            currentSystem.counterEl.innerText = `Maten: ${currentSystem.measures.length + 1}`;
+            updateCounterLabel();
         }
     });
 
@@ -156,7 +166,7 @@
                 }
                 else { 
                     currentSystem.measures.pop(); 
-                    currentSystem.counterEl.innerText = `Maten: ${currentSystem.measures.length + 1}`;
+                    updateCounterLabel();
                 }
             }
         }
@@ -176,20 +186,19 @@
         systems.push(currentSystem);
         currentSystem = null; visualElements = []; state = 'TOP';
         nextBtn.style.display = 'none';
-        stepEl.innerText = "Regel opgeslagen! Tik op de volgende.";
+        stepEl.innerText = "Regel klaar! Tik op de volgende.";
     });
 
     // PERFORMANCE LOGIC
     async function startPerformance() {
         if(systems.length === 0) return;
-        isRunning = true;
-        isPaused = false;
+        isRunning = true; isPaused = false;
         startBtn.style.display = 'none';
         pauseBtn.style.display = 'inline-block';
         stopBtn.style.display = 'inline-block';
         
         const bpm = document.getElementById('bpm').value;
-        const beats = document.getElementById('time-sig').value;
+        const beats = timeSigEl.value;
         
         window.scrollTo({top: systems[0].top - 150, behavior: 'smooth'});
         await new Promise(r => setTimeout(r, 1000));
@@ -200,7 +209,6 @@
             const sys = systems[i];
             const totalSeconds = ((sys.measures.length + 1) * beats) / bpm * 60;
             const speed = (sys.bottom - sys.top) / totalSeconds;
-            
             await scrollDistance(sys.bottom - sys.top, speed);
         }
         if (isRunning) stopPerformance();
@@ -210,63 +218,37 @@
         return new Promise(resolve => {
             let traveled = 0;
             let lastTime = performance.now();
-
             function step(now) {
                 if (!isRunning) return resolve();
-                if (isPaused) {
-                    lastTime = now;
-                    scrollAnimationFrame = requestAnimationFrame(step);
-                    return;
-                }
-
+                if (isPaused) { lastTime = now; scrollAnimationFrame = requestAnimationFrame(step); return; }
                 const deltaTime = (now - lastTime) / 1000;
                 lastTime = now;
-                
                 const toScroll = speed * deltaTime;
                 window.scrollBy(0, toScroll);
                 traveled += toScroll;
-
-                if (traveled < target) {
-                    scrollAnimationFrame = requestAnimationFrame(step);
-                } else {
-                    resolve();
-                }
+                if (traveled < target) scrollAnimationFrame = requestAnimationFrame(step);
+                else resolve();
             }
             scrollAnimationFrame = requestAnimationFrame(step);
         });
     }
 
     function stopPerformance() {
-        isRunning = false;
-        isPaused = false;
-        currentSystemIndex = 0;
+        isRunning = false; isPaused = false; currentSystemIndex = 0;
         cancelAnimationFrame(scrollAnimationFrame);
         startBtn.style.display = 'inline-block';
         pauseBtn.style.display = 'none';
         pauseBtn.innerText = "PAUZE";
         stopBtn.style.display = 'none';
-        stepEl.innerText = "Gestopt. Klik op START om opnieuw te beginnen.";
         window.scrollTo({top: 0, behavior: 'smooth'});
     }
 
     startBtn.addEventListener('click', startPerformance);
-    
     pauseBtn.addEventListener('click', () => {
         isPaused = !isPaused;
         pauseBtn.innerText = isPaused ? "VERDERGAAN" : "PAUZE";
-        stepEl.innerText = isPaused ? "Gepauzeerd" : "Aan het spelen...";
     });
-
     stopBtn.addEventListener('click', stopPerformance);
-
-    // Keyboard support
-    window.addEventListener('keydown', (e) => {
-        if (e.code === 'Space') {
-            e.preventDefault();
-            if (!isRunning) startPerformance();
-            else pauseBtn.click();
-        }
-    });
 </script>
 </body>
 </html>
