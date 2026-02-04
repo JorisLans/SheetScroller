@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v31 - Transition Restore</title>
+    <title>Precision Sheet Scroller v32 - Beat & Measure Fix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -33,6 +33,12 @@
             background: #ff0000; box-shadow: 0 0 20px #ff0000; 
             z-index: 999999; display: none; pointer-events: none; 
         }
+
+        #beat-indicator {
+            position: absolute; left: 50%; bottom: -30px; transform: translateX(-50%);
+            background: rgba(255, 0, 0, 0.9); color: white; padding: 2px 10px;
+            border-radius: 10px; font-weight: bold; font-size: 14px; white-space: nowrap;
+        }
         
         #limit-line { position: fixed; top: 33%; left: 0; width: 100%; height: 2px; border-top: 2px dashed rgba(255,255,255,0.5); z-index: 15000; pointer-events: none; display: none; }
 
@@ -43,16 +49,16 @@
         .btn-confirm { background: var(--accent); color: #000; border: 2px solid white; }
         
         input, select { padding: 8px; border-radius: 6px; background: #334155; color: white; border: 1px solid #475569; }
-        .slider-box { display: flex; align-items: center; gap: 8px; font-size: 11px; background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 8px; }
 
         .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--accent); pointer-events: none; z-index: 10; opacity: 0.4; }
-        .measure-block { position: absolute; pointer-events: none; border-right: 1px solid white; z-index: 5; }
+        .measure-block { position: absolute; pointer-events: none; border-right: 1px solid white; z-index: 5; transition: background 0.1s; }
+        .measure-block.active { background: rgba(241, 196, 15, 0.5) !important; border: 2px solid white; }
         .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 4px 8px; border-radius: 4px; font-weight: 900; font-size: 11px; z-index: 20; transform: translateY(-50%); }
     </style>
 </head>
 <body>
 
-<div id="scanning-line"></div>
+<div id="scanning-line"><div id="beat-indicator" style="display:none;"></div></div>
 <div id="limit-line"></div>
 
 <div id="ui-layer">
@@ -61,10 +67,7 @@
         <input type="file" id="upload">
         <div>BPM <input type="number" id="bpm" value="120" style="width:55px;"></div>
         <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select>
-        <div class="slider-box">
-            Transitie <input type="range" id="glide-percent" min="0" max="25" value="10" style="width:70px;">
-            <span id="glide-val">10%</span>
-        </div>
+        <div style="font-size: 11px;">Transitie <input type="range" id="glide-percent" min="0" max="25" value="10" style="width:60px;"></div>
         <select id="view-mode"><option value="FULL">Begeleid</option><option value="CLEAN">Schoon</option></select>
         <button id="undo-btn" class="btn btn-undo">Undo</button>
         <button id="next-system-btn" class="btn btn-confirm" style="display:none;">BEVESTIG REGEL</button>
@@ -92,11 +95,8 @@
     let visualElements = [];
 
     const scanner = document.getElementById('scanning-line');
+    const beatDisplay = document.getElementById('beat-indicator');
     const container = document.getElementById('pdf-render-area');
-    const glideSlider = document.getElementById('glide-percent');
-    const glideLabel = document.getElementById('glide-val');
-
-    glideSlider.addEventListener('input', () => glideLabel.innerText = glideSlider.value + '%');
 
     document.getElementById('upload').addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -112,7 +112,7 @@
             await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
             container.appendChild(canvas);
         }
-        state = 'TOP'; document.getElementById('workflow-step').innerText = "Klik op de BOVENKANT van de regel";
+        state = 'TOP'; document.getElementById('workflow-step').innerText = "STAP 1: Klik BOVENKANT regel";
     });
 
     container.addEventListener('mousedown', (e) => {
@@ -122,8 +122,9 @@
         const x = (e.pageX - rect.left);
         
         if (state === 'TOP') { 
-            currentSystem = { top: y, bottom: 0, measures: [] }; 
+            currentSystem = { top: y, bottom: 0, measures: [], visualBlocks: [] }; 
             state = 'BOTTOM'; 
+            document.getElementById('workflow-step').innerText = "STAP 2: Klik ONDERKANT regel";
         }
         else if (state === 'BOTTOM') {
             currentSystem.bottom = y;
@@ -136,6 +137,7 @@
             state = 'MEASURES';
             document.getElementById('next-system-btn').style.display = 'inline-block';
             visualElements.push(box, counter);
+            document.getElementById('workflow-step').innerText = "STAP 3: Klik op MAATSTREPEN";
         } else if (state === 'MEASURES') {
             const lastX = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
             currentSystem.measures.push(x);
@@ -144,7 +146,9 @@
             block.style.left = lastX + 'px'; block.style.width = (x - lastX) + 'px';
             block.style.background = currentSystem.measures.length % 2 === 0 ? 'var(--measure-b)' : 'var(--measure-a)';
             container.appendChild(block);
+            currentSystem.visualBlocks.push(block);
             visualElements.push(block);
+            currentSystem.counterEl.innerText = `M: ${currentSystem.measures.length + 1}`;
         }
     });
 
@@ -152,13 +156,23 @@
         systems.push(currentSystem);
         currentSystem = null; state = 'TOP';
         document.getElementById('next-system-btn').style.display = 'none';
+        document.getElementById('workflow-step').innerText = "Regel Opgeslagen. Klik volgende regel.";
     });
 
-    function doAutoScroll() {
-        const limit = window.innerHeight * 0.33;
-        const scannerPos = scanner.getBoundingClientRect().top;
-        if (scannerPos > limit) {
-            window.scrollBy(0, scannerPos - limit);
+    function updateBeatUI(elapsed, totalDur, numMeasures, beatsPerMeasure) {
+        const progress = elapsed / totalDur;
+        const totalBeats = numMeasures * beatsPerMeasure;
+        const currentTotalBeat = Math.floor(progress * totalBeats);
+        const currentMeasure = Math.floor(currentTotalBeat / beatsPerMeasure);
+        const beatInMeasure = (currentTotalBeat % beatsPerMeasure) + 1;
+        
+        beatDisplay.innerText = `MAAT ${currentMeasure + 1} | BEAT ${beatInMeasure}`;
+        
+        // Update actieve maatblok
+        systems.forEach(s => s.visualBlocks?.forEach(b => b.classList.remove('active')));
+        const activeSystem = systems.find(s => parseFloat(scanner.style.top) >= s.top && parseFloat(scanner.style.top) <= s.bottom);
+        if(activeSystem && activeSystem.visualBlocks[currentMeasure]) {
+            activeSystem.visualBlocks[currentMeasure].classList.add('active');
         }
     }
 
@@ -169,16 +183,12 @@
         
         document.getElementById('ui-layer').classList.add('performance-hidden');
         document.getElementById('perf-controls').style.display = 'flex';
-        document.getElementById('limit-line').style.display = (mode === 'CLEAN' ? 'none' : 'block');
         scanner.style.display = 'block';
-
-        if(mode === 'CLEAN') {
-            document.querySelectorAll('.system-box, .measure-block, .measure-counter').forEach(el => el.style.display = 'none');
-        }
+        beatDisplay.style.display = 'block';
 
         const bpm = parseInt(document.getElementById('bpm').value);
         const beats = parseInt(document.getElementById('time-sig').value);
-        const glideFactor = parseInt(glideSlider.value) / 100;
+        const glideFactor = parseInt(document.getElementById('glide-percent').value) / 100;
 
         window.scrollTo({top: systems[0].top - 50, behavior: 'smooth'});
         await new Promise(r => setTimeout(r, 600));
@@ -186,12 +196,12 @@
         for (let i = 0; i < systems.length; i++) {
             if (!isRunning) break;
             const sys = systems[i];
-            const totalDur = ((sys.measures.length + 1) * beats / bpm) * 60;
-            const transitionDur = (i < systems.length - 1) ? Math.max(0.1, totalDur * glideFactor) : 0;
-            const scanDur = totalDur - transitionDur;
+            const numM = sys.measures.length + 1;
+            const totalDur = (numM * beats / bpm) * 60;
+            const transDur = (i < systems.length - 1) ? totalDur * glideFactor : 0;
+            const scanDur = totalDur - transDur;
             const speed = (sys.bottom - sys.top) / scanDur;
 
-            // SCANNEN VAN DE REGEL
             await new Promise(res => {
                 let startTime = performance.now();
                 function step(now) {
@@ -199,31 +209,32 @@
                     if (isPaused) { startTime += (performance.now() - now); scrollAnimationFrame = requestAnimationFrame(step); return; }
                     const elapsed = (now - startTime) / 1000;
                     const pos = Math.min(sys.top + (elapsed * speed), sys.bottom);
-                    const containerRect = container.getBoundingClientRect();
-                    scanner.style.top = (pos + containerRect.top + window.scrollY) + 'px';
-                    doAutoScroll();
+                    const cRect = container.getBoundingClientRect();
+                    scanner.style.top = (pos + cRect.top + window.scrollY) + 'px';
+                    
+                    updateBeatUI(elapsed, totalDur, numM, beats);
+                    
+                    const limit = window.innerHeight * 0.33;
+                    if (scanner.getBoundingClientRect().top > limit) window.scrollBy(0, scanner.getBoundingClientRect().top - limit);
+                    
                     if (elapsed < scanDur) scrollAnimationFrame = requestAnimationFrame(step); else res();
                 }
                 scrollAnimationFrame = requestAnimationFrame(step);
             });
 
-            // TRANSITIE (GLIDE) NAAR VOLGENDE REGEL
-            if (i < systems.length - 1 && isRunning && transitionDur > 0) {
+            if (i < systems.length - 1 && isRunning && transDur > 0) {
                 const next = systems[i+1];
                 await new Promise(res => {
                     let gStart = performance.now();
-                    scanner.style.opacity = "0.5";
                     function gStep(now) {
                         if (!isRunning) return res();
                         if (isPaused) { gStart += (performance.now() - now); scrollAnimationFrame = requestAnimationFrame(gStep); return; }
                         const elapsed = (now - gStart) / 1000;
-                        const prog = Math.min(elapsed / transitionDur, 1);
-                        const ease = prog < 0.5 ? 2 * prog * prog : 1 - Math.pow(-2 * prog + 2, 2) / 2;
-                        const pos = sys.bottom + (next.top - sys.bottom) * ease;
-                        const containerRect = container.getBoundingClientRect();
-                        scanner.style.top = (pos + containerRect.top + window.scrollY) + 'px';
-                        doAutoScroll();
-                        if (prog < 1) scrollAnimationFrame = requestAnimationFrame(gStep); else { scanner.style.opacity = "1"; res(); }
+                        const prog = Math.min(elapsed / transDur, 1);
+                        const pos = sys.bottom + (next.top - sys.bottom) * prog;
+                        const cRect = container.getBoundingClientRect();
+                        scanner.style.top = (pos + cRect.top + window.scrollY) + 'px';
+                        if (prog < 1) scrollAnimationFrame = requestAnimationFrame(gStep); else res();
                     }
                     scrollAnimationFrame = requestAnimationFrame(gStep);
                 });
@@ -237,8 +248,8 @@
         document.getElementById('ui-layer').classList.remove('performance-hidden');
         document.getElementById('perf-controls').style.display = 'none';
         scanner.style.display = 'none';
-        document.getElementById('limit-line').style.display = 'none';
-        document.querySelectorAll('.system-box, .measure-block, .measure-counter').forEach(el => el.style.display = 'block');
+        beatDisplay.style.display = 'none';
+        systems.forEach(s => s.visualBlocks?.forEach(b => b.classList.remove('active')));
     }
 
     document.getElementById('undo-btn').addEventListener('click', () => {
@@ -247,9 +258,6 @@
     });
 
     document.getElementById('start-btn').addEventListener('click', startPerformance);
-    document.getElementById('pause-btn').addEventListener('click', () => {
-        isPaused = !isPaused; document.getElementById('pause-btn').innerText = isPaused ? "VERDER" : "PAUZE";
-    });
     document.getElementById('stop-btn').addEventListener('click', stopPerformance);
 </script>
 </body>
