@@ -3,166 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Conductor v56 - Professional Edition</title>
+    <title>The Conductor v57 - Universal Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
             --ink: #121212; --paper: #f8f9fa; --white: #ffffff;
             --border-width: 3px;
-            /* Professioneel Grijspalet voor maten */
-            --m1: rgba(0, 0, 0, 0.05);
-            --m2: rgba(0, 0, 0, 0.12);
-            --m3: rgba(0, 0, 0, 0.08);
-            --m4: rgba(0, 0, 0, 0.15);
+            --m1: rgba(0, 0, 0, 0.05); --m2: rgba(0, 0, 0, 0.12);
+            --m3: rgba(0, 0, 0, 0.08); --m4: rgba(0, 0, 0, 0.15);
         }
 
         body { 
             font-family: 'Georgia', serif; margin: 0; background: #e9ecef; 
-            color: var(--ink); overflow-x: hidden; scroll-behavior: smooth;
+            color: var(--ink); overflow-x: hidden; -webkit-tap-highlight-color: transparent;
         }
 
-        /* --- STOER EN PROFESSIONEEL HEADER DESIGN --- */
+        /* --- RESPONSIVE HEADER --- */
         #master-header { 
             position: fixed; top: 0; width: 100%; z-index: 100000;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.98);
             border-bottom: var(--border-width) solid var(--ink);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
 
         .status-bar { 
             background: var(--ink); color: var(--white); 
-            text-align: center; padding: 8px; font-weight: bold; 
-            font-size: 10px; text-transform: uppercase; letter-spacing: 2px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            text-align: center; padding: 6px; font-weight: bold; 
+            font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px;
         }
 
         .nav-container { 
-            display: flex; gap: 20px; padding: 15px 30px; align-items: center; 
-            justify-content: space-between; max-width: 1400px; margin: 0 auto;
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px; padding: 10px; align-items: end; max-width: 1400px; margin: 0 auto;
         }
 
-        .control-group { display: flex; align-items: center; gap: 12px; }
+        /* Voor laptop schermen maken we het weer een rij */
+        @media (min-width: 1024px) {
+            .nav-container { display: flex; justify-content: space-between; padding: 15px 30px; }
+        }
 
-        /* --- TYPOGRAFIE EN INPUTS --- */
-        .input-label { font-size: 11px; font-weight: 900; text-transform: uppercase; color: #666; margin-bottom: 4px; display: block; }
+        .control-group { display: flex; flex-direction: column; gap: 5px; }
+        .row-group { display: flex; align-items: center; gap: 10px; }
+
+        .input-label { font-size: 10px; font-weight: 900; text-transform: uppercase; color: #666; }
         
         .btn { 
-            padding: 10px 20px; border: var(--border-width) solid var(--ink); border-radius: 0px; 
+            padding: 10px 15px; border: var(--border-width) solid var(--ink); border-radius: 0px; 
             background: var(--white); color: var(--ink); cursor: pointer; 
-            font-weight: 900; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            font-family: -apple-system, sans-serif; text-transform: uppercase; font-size: 11px;
-            box-shadow: 4px 4px 0px var(--ink);
-        }
-        .btn:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0px var(--ink); background: var(--ink); color: var(--white); }
-        .btn:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0px var(--ink); }
-        .btn-primary { background: var(--ink); color: var(--white); }
-        
-        input[type="number"], select { 
-            background: var(--white); border: 2px solid var(--ink); color: var(--ink); 
-            padding: 8px; font-weight: bold; font-family: inherit; font-size: 14px;
+            font-weight: 900; font-family: sans-serif; text-transform: uppercase; font-size: 10px;
+            box-shadow: 3px 3px 0px var(--ink);
         }
 
-        /* --- PDF VIEWER MET OFFSET --- */
-        #content-wrapper { padding-top: 140px; } /* De oplossing voor de overlap */
-        
-        #viewer-container { 
-            position: relative; width: 100%; display: flex; flex-direction: column; align-items: center;
-            background: var(--paper); padding-bottom: 100px;
-        }
-        canvas { 
-            box-shadow: 0 20px 50px rgba(0,0,0,0.15); 
-            margin-bottom: 40px; max-width: 90%; 
-            background: white; border: 1px solid #ddd;
-        }
+        /* --- PDF VIEWER --- */
+        #content-wrapper { padding-top: 180px; transition: padding 0.3s; }
+        @media (min-width: 1024px) { #content-wrapper { padding-top: 130px; } }
 
-        /* --- MARKERS --- */
-        #scanning-line { 
-            position: absolute; left: 0; width: 100%; height: 5px; 
-            background: #000; z-index: 99999; display: none; pointer-events: none;
-        }
+        #viewer-container { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; }
+        canvas { box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin-bottom: 20px; width: 95% !important; height: auto !important; }
+
+        /* --- MARKERS & OVERLAYS --- */
+        #scanning-line { position: absolute; left: 0; width: 100%; height: 5px; background: #000; z-index: 99999; display: none; pointer-events: none; }
         #beat-bubble {
-            position: absolute; left: 50%; bottom: -40px; transform: translateX(-50%);
-            background: var(--ink); color: #fff; padding: 6px 16px; 
-            font-size: 14px; font-weight: 900; border: 2px solid #fff;
-            font-family: monospace;
+            position: absolute; left: 50%; bottom: -35px; transform: translateX(-50%);
+            background: var(--ink); color: #fff; padding: 5px 12px; font-size: 12px; font-weight: 900; border: 2px solid #fff; white-space: nowrap;
         }
 
-        .system-box { 
-            position: absolute; left: 0; width: 100%; 
-            border: 5px solid var(--ink); /* Ultra dikke regelmarkering */
-            pointer-events: none; z-index: 10; opacity: 0.8; 
-        }
-
-        .measure-block { position: absolute; pointer-events: none; border-right: 1px solid rgba(0,0,0,0.2); z-index: 5; }
-        
+        .system-box { position: absolute; left: 0; width: 100%; border: 4px solid var(--ink); pointer-events: none; z-index: 10; opacity: 0.7; }
+        .measure-block { position: absolute; pointer-events: none; z-index: 5; }
         .label-tag { 
-            position: absolute; right: 20px; background: var(--white); color: var(--ink); 
-            border: 3px solid var(--ink); padding: 8px 15px; font-weight: 900;
-            font-size: 13px; z-index: 20; transform: translateY(-50%);
-            box-shadow: 5px 5px 0px rgba(0,0,0,0.1);
+            position: absolute; right: 10px; background: var(--white); color: var(--ink); 
+            border: 2px solid var(--ink); padding: 5px; font-weight: 900; font-size: 10px; z-index: 20; transform: translateY(-50%);
         }
 
-        /* MODES LOGICA */
-        body.play-clean #scanning-line, body.play-clean .system-box, 
-        body.play-clean .label-tag, body.play-clean .measure-block { opacity: 0 !important; }
-        
-        body.play-guide .measure-block.active { background: #000 !important; opacity: 0.3 !important; }
-
+        /* PERFORMANCE UI */
         #performance-overlay { 
-            position: fixed; bottom: 40px; right: 40px; z-index: 110000; 
-            display: none; gap: 20px; background: var(--white); padding: 20px; 
-            border: 4px solid var(--ink); box-shadow: 10px 10px 0px rgba(0,0,0,0.2);
+            position: fixed; bottom: 20px; right: 20px; left: 20px; z-index: 110000; 
+            display: none; gap: 10px; background: var(--white); padding: 15px; 
+            border: 3px solid var(--ink); box-shadow: 5px 5px 0px rgba(0,0,0,0.2);
+            justify-content: center;
         }
+        @media (min-width: 768px) { #performance-overlay { left: auto; width: auto; } }
+
+        body.play-clean #scanning-line, body.play-clean .system-box, body.play-clean .label-tag, body.play-clean .measure-block { opacity: 0 !important; }
+        body.play-guide .measure-block.active { background: #000 !important; opacity: 0.3 !important; }
     </style>
 </head>
 <body id="main-body">
 
 <header id="master-header">
-    <div class="status-bar" id="step-info">Systeem Gereed • Wacht op Partituur</div>
+    <div class="status-bar" id="step-info">Universal Conductor Ready</div>
     <div class="nav-container">
         <div class="control-group">
-            <input type="file" id="upload-pdf" class="btn" style="padding: 6px;">
+            <span class="input-label">Score</span>
+            <input type="file" id="upload-pdf" style="font-size: 10px; width: 140px;">
         </div>
         
-        <div class="control-group">
-            <div>
-                <span class="input-label">Tempo</span>
-                <input type="number" id="bpm-input" value="120" style="width:65px;">
+        <div class="row-group">
+            <div class="control-group">
+                <span class="input-label">BPM</span>
+                <input type="number" id="bpm-input" value="120" style="width:50px;">
             </div>
-            <div>
-                <span class="input-label">Maatsoort</span>
-                <select id="ts-input">
-                    <option value="4">4/4 Time</option>
-                    <option value="3">3/4 Time</option>
-                    <option value="2">2/4 Time</option>
-                    <option value="6">6/8 Time</option>
-                </select>
+            <div class="control-group">
+                <span class="input-label">Maat</span>
+                <select id="ts-input"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select>
             </div>
         </div>
 
-        <div class="control-group">
-            <div>
-                <span class="input-label">Weergave</span>
-                <select id="play-mode" style="border-width: 3px;">
-                    <option value="guide">Begeleiding</option>
-                    <option value="clean">Schone Versie</option>
-                </select>
+        <div class="row-group">
+            <div class="control-group">
+                <span class="input-label">Modus</span>
+                <select id="play-mode"><option value="guide">Begeleiding</option><option value="clean">Schoon</option></select>
             </div>
-            <div style="text-align:center">
+            <div class="control-group">
                 <span class="input-label">Glide</span>
-                <input type="range" id="glide-input" min="0" max="40" value="15" style="width: 80px; display:block;">
+                <input type="range" id="glide-input" min="0" max="40" value="15" style="width: 60px;">
             </div>
         </div>
 
-        <div class="control-group">
-            <label style="cursor:pointer; text-align:center">
-                <span class="input-label">Metro</span>
-                <input type="checkbox" id="metronome-on" checked style="transform: scale(1.5);">
-            </label>
+        <div class="row-group" style="margin-top: 5px;">
+            <label style="text-align:center"><span class="input-label">Metro</span><br><input type="checkbox" id="metronome-on" checked></label>
             <button id="undo-btn" class="btn">Undo</button>
-            <button id="confirm-btn" class="btn btn-primary" style="display:none;">Bevestig (<span id="m-count">1</span>)</button>
-            <button id="start-btn" class="btn btn-primary" style="background: #2ecc71; border-color: #27ae60;">START</button>
+            <button id="confirm-btn" class="btn" style="display:none; background: #eee;">Ok (<span id="m-count">1</span>)</button>
+            <button id="start-btn" class="btn" style="background: #2ecc71; border-color: #000;">START</button>
         </div>
     </div>
 </header>
@@ -174,8 +136,8 @@
 </div>
 
 <div id="performance-overlay">
-    <button id="pause-btn" class="btn">PAUZE</button>
-    <button id="stop-btn" class="btn btn-primary" style="background:#e74c3c; border-color:#c0392b;">STOP</button>
+    <button id="pause-btn" class="btn" style="flex:1;">PAUZE</button>
+    <button id="stop-btn" class="btn" style="flex:1; background:#e74c3c; color:white;">STOP</button>
 </div>
 
 <script>
@@ -183,8 +145,7 @@
         pdf: null, systems: [], currentSystem: null,
         state: 'IDLE', isRunning: false, isPaused: false,
         audioCtx: null, visualHistory: [], lastBeat: -1,
-        // Multicolor palet voor maten
-        measureColors: ['var(--m1)', 'var(--m2)', 'var(--m3)', 'var(--m4)'],
+        colors: ['var(--m1)', 'var(--m2)', 'var(--m3)', 'var(--m4)'],
 
         init() {
             this.bindEvents();
@@ -202,144 +163,109 @@
         },
 
         async loadPDF(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            this.updateStatus("Rendering High-Fidelity PDF...");
+            const file = e.target.files[0]; if (!file) return;
+            this.updateStatus("Laden...");
             const buffer = await file.arrayBuffer();
             this.pdf = await pdfjsLib.getDocument(buffer).promise;
-            
             const container = document.getElementById('viewer-container');
             container.querySelectorAll('canvas').forEach(c => c.remove());
 
             for (let i = 1; i <= this.pdf.numPages; i++) {
                 const page = await this.pdf.getPage(i);
-                const viewport = page.getViewport({ scale: 2.5 }); // Hogere kwaliteit
+                const viewport = page.getViewport({ scale: 2.0 });
                 const canvas = document.createElement('canvas');
                 canvas.width = viewport.width; canvas.height = viewport.height;
                 await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
                 container.appendChild(canvas);
             }
-            this.state = 'TOP';
-            this.updateStatus("Step 1: Markeer BOVENKANT van de regel");
+            this.state = 'TOP'; this.updateStatus("Klik BOVENKANT regel");
         },
 
         handleMarking(e) {
             if (this.state === 'IDLE' || this.isRunning) return;
             const container = document.getElementById('viewer-container');
             const rect = container.getBoundingClientRect();
-            const yPct = ((e.pageY - (rect.top + window.scrollY)) / container.scrollHeight) * 100;
-            const xPct = ((e.pageX - rect.left) / rect.width) * 100;
+            const y = ((e.pageY - (rect.top + window.scrollY)) / container.scrollHeight) * 100;
+            const x = ((e.pageX - rect.left) / rect.width) * 100;
 
             if (this.state === 'TOP') {
-                this.currentSystem = { top: yPct, bottom: 0, measures: [], blocks: [] };
-                this.state = 'BOTTOM';
-                this.updateStatus("Step 2: Markeer ONDERKANT van de regel");
+                this.currentSystem = { top: y, bottom: 0, measures: [], blocks: [] };
+                this.state = 'BOTTOM'; this.updateStatus("Klik ONDERKANT regel");
             } else if (this.state === 'BOTTOM') {
-                this.currentSystem.bottom = yPct;
-                this.createSystemUI(yPct);
-                this.state = 'MEASURES';
-                this.updateStatus("Step 3: Klik op Maatstrepen | Bevestig indien klaar");
+                this.currentSystem.bottom = y;
+                this.createUI(y);
+                this.state = 'MEASURES'; this.updateStatus("Klik Maatstrepen | Bevestig");
                 document.getElementById('confirm-btn').style.display = 'inline-block';
             } else if (this.state === 'MEASURES') {
-                this.addMeasure(xPct);
+                this.addM(x);
             }
         },
 
-        createSystemUI(bottomY) {
-            const container = document.getElementById('viewer-container');
-            const box = document.createElement('div');
-            box.className = 'system-box';
-            box.style.top = this.currentSystem.top + '%';
-            box.style.height = (bottomY - this.currentSystem.top) + '%';
-            
-            const label = document.createElement('div');
-            label.className = 'label-tag';
-            label.style.top = ((this.currentSystem.top + bottomY) / 2) + '%';
-            
-            container.appendChild(box);
-            container.appendChild(label);
-            this.currentSystem.boxEl = box;
-            this.currentSystem.labelEl = label;
-            this.visualHistory.push({ type: 'BOX', el: box, labelEl: label });
-            this.refreshLabel();
+        createUI(by) {
+            const c = document.getElementById('viewer-container');
+            const box = document.createElement('div'); box.className = 'system-box';
+            box.style.top = this.currentSystem.top + '%'; box.style.height = (by - this.currentSystem.top) + '%';
+            const lb = document.createElement('div'); lb.className = 'label-tag';
+            lb.style.top = ((this.currentSystem.top + by) / 2) + '%';
+            c.appendChild(box); c.appendChild(lb);
+            this.currentSystem.boxEl = box; this.currentSystem.labelEl = lb;
+            this.visualHistory.push({ type: 'BOX', el: box, lb: lb });
+            this.refreshLb();
         },
 
-        addMeasure(x) {
-            const lastX = this.currentSystem.measures.length > 0 ? this.currentSystem.measures[this.currentSystem.measures.length - 1] : 0;
-            const mIndex = this.currentSystem.measures.length;
+        addM(x) {
+            const lx = this.currentSystem.measures.length > 0 ? this.currentSystem.measures[this.currentSystem.measures.length - 1] : 0;
+            const mi = this.currentSystem.measures.length;
             this.currentSystem.measures.push(x);
-            
-            const block = document.createElement('div');
-            block.className = 'measure-block';
-            block.style.top = this.currentSystem.top + '%';
-            block.style.height = (this.currentSystem.bottom - this.currentSystem.top) + '%';
-            block.style.left = lastX + '%';
-            block.style.width = (x - lastX) + '%';
-            
-            // Unieke kleur per maat (Multicolor palet)
-            block.style.background = this.measureColors[mIndex % 4];
-            
-            document.getElementById('viewer-container').appendChild(block);
-            this.currentSystem.blocks.push(block);
-            this.visualHistory.push({ type: 'MEASURE', el: block });
-            this.refreshLabel();
+            const b = document.createElement('div'); b.className = 'measure-block';
+            b.style.top = this.currentSystem.top + '%'; b.style.height = (this.currentSystem.bottom - this.currentSystem.top) + '%';
+            b.style.left = lx + '%'; b.style.width = (x - lx) + '%';
+            b.style.background = this.colors[mi % 4];
+            document.getElementById('viewer-container').appendChild(b);
+            this.currentSystem.blocks.push(b);
+            this.visualHistory.push({ type: 'MEASURE', el: b });
+            this.refreshLb();
         },
 
         confirmSystem() {
-            const lastX = this.currentSystem.measures.length > 0 ? this.currentSystem.measures[this.currentSystem.measures.length - 1] : 0;
-            const mIndex = this.currentSystem.measures.length;
-            const finalBlock = document.createElement('div');
-            finalBlock.className = 'measure-block';
-            finalBlock.style.top = this.currentSystem.top + '%';
-            finalBlock.style.height = (this.currentSystem.bottom - this.currentSystem.top) + '%';
-            finalBlock.style.left = lastX + '%';
-            finalBlock.style.width = (100 - lastX) + '%';
-            finalBlock.style.background = this.measureColors[mIndex % 4];
-            
-            document.getElementById('viewer-container').appendChild(finalBlock);
-            this.currentSystem.blocks.push(finalBlock);
-            
+            const lx = this.currentSystem.measures.length > 0 ? this.currentSystem.measures[this.currentSystem.measures.length - 1] : 0;
+            const mi = this.currentSystem.measures.length;
+            const fb = document.createElement('div'); fb.className = 'measure-block';
+            fb.style.top = this.currentSystem.top + '%'; fb.style.height = (this.currentSystem.bottom - this.currentSystem.top) + '%';
+            fb.style.left = lx + '%'; fb.style.width = (100 - lx) + '%';
+            fb.style.background = this.colors[mi % 4];
+            document.getElementById('viewer-container').appendChild(fb);
+            this.currentSystem.blocks.push(fb);
             this.systems.push(this.currentSystem);
             this.currentSystem = null; this.visualHistory = []; this.state = 'TOP';
-            this.updateStatus("Regel voltooid. Volgende regel of START");
+            this.updateStatus("Regel OK. Volgende?");
             document.getElementById('confirm-btn').style.display = 'none';
         },
 
         undo() {
             if (!this.visualHistory.length) return;
-            const item = this.visualHistory.pop();
-            item.el.remove();
-            if (item.type === 'MEASURE') {
-                this.currentSystem.measures.pop();
-                this.currentSystem.blocks.pop();
-            } else {
-                item.labelEl.remove();
-                this.currentSystem = null; this.state = 'TOP';
-                document.getElementById('confirm-btn').style.display = 'none';
-            }
-            this.refreshLabel();
+            const item = this.visualHistory.pop(); item.el.remove();
+            if (item.type === 'MEASURE') { this.currentSystem.measures.pop(); this.currentSystem.blocks.pop(); }
+            else { item.lb.remove(); this.currentSystem = null; this.state = 'TOP'; document.getElementById('confirm-btn').style.display = 'none'; }
+            this.refreshLb();
         },
 
-        refreshLabel() {
+        refreshLb() {
             if (!this.currentSystem) return;
-            const count = this.currentSystem.measures.length + 1;
-            const beats = count * parseInt(document.getElementById('ts-input').value);
-            document.getElementById('m-count').innerText = count;
-            this.currentSystem.labelEl.innerHTML = `REGEL ${this.systems.length + 1} &bull; ${count} MATEN &bull; ${beats} BEATS`;
+            const c = this.currentSystem.measures.length + 1;
+            const b = c * parseInt(document.getElementById('ts-input').value);
+            document.getElementById('m-count').innerText = c;
+            this.currentSystem.labelEl.innerHTML = `R${this.systems.length + 1}: ${c}M | ${b}B`;
         },
 
-        updateStatus(msg) {
-            document.getElementById('step-info').innerText = msg;
-        },
+        updateStatus(m) { document.getElementById('step-info').innerText = m; },
 
         async start() {
             if (!this.systems.length) return;
-            this.isRunning = true; this.isPaused = false;
-            
+            this.isRunning = true;
             const mode = document.getElementById('play-mode').value;
             document.getElementById('main-body').className = (mode === 'clean' ? 'play-clean' : 'play-guide');
             document.getElementById('master-header').style.transform = 'translateY(-100%)';
-            document.getElementById('master-header').style.transition = '0.5s';
             document.getElementById('performance-overlay').style.display = 'flex';
             document.getElementById('scanning-line').style.display = 'block';
 
@@ -349,87 +275,68 @@
 
             for (let i = 0; i < this.systems.length; i++) {
                 if (!this.isRunning) break;
-                await this.playSystem(this.systems[i], i, bpm, ts, glide);
+                await this.playSys(this.systems[i], i, bpm, ts, glide);
             }
             this.stop();
         },
 
-        playSystem(sys, idx, bpm, ts, glideFactor) {
-            return new Promise(resolve => {
-                const numM = sys.blocks.length;
-                const totalDur = (numM * ts / bpm) * 60;
-                const transDur = (idx < this.systems.length - 1) ? totalDur * glideFactor : 0;
-                const scanDur = totalDur - transDur;
-                let startTime = performance.now();
-                this.lastBeat = -1;
+        playSys(sys, idx, bpm, ts, gF) {
+            return new Promise(res => {
+                const nM = sys.blocks.length; const tD = (nM * ts / bpm) * 60;
+                const trD = (idx < this.systems.length - 1) ? tD * gF : 0;
+                const sD = tD - trD; let sT = performance.now(); this.lastBeat = -1;
 
                 const tick = (now) => {
-                    if (!this.isRunning) return resolve();
-                    if (this.isPaused) { startTime += (performance.now() - now); requestAnimationFrame(tick); return; }
+                    if (!this.isRunning) return res();
+                    if (this.isPaused) { sT += (performance.now() - now); requestAnimationFrame(tick); return; }
+                    const el = (now - sT) / 1000;
+                    const pr = Math.min(el / tD, 0.999);
+                    const cB = Math.floor(pr * (nM * ts));
 
-                    const elapsed = (now - startTime) / 1000;
-                    const progress = Math.min(elapsed / totalDur, 0.999);
-                    const totalBeats = numM * ts;
-                    const curBeat = Math.floor(progress * totalBeats);
-
-                    if (curBeat !== this.lastBeat) {
-                        this.click(curBeat % ts === 0);
-                        this.lastBeat = curBeat;
-                        document.getElementById('beat-bubble').innerText = `MEASURE ${Math.floor(curBeat/ts)+1} • BEAT ${(curBeat%ts)+1}`;
+                    if (cB !== this.lastBeat) {
+                        this.click(cB % ts === 0); this.lastBeat = cB;
+                        document.getElementById('beat-bubble').innerText = `M${Math.floor(cB/ts)+1} • B${(cB%ts)+1}`;
                     }
-
-                    sys.blocks.forEach((b, k) => b.classList.toggle('active', k === Math.floor(curBeat/ts)));
+                    sys.blocks.forEach((b, k) => b.classList.toggle('active', k === Math.floor(cB/ts)));
 
                     let y;
-                    if (elapsed <= scanDur) {
-                        y = sys.top + (elapsed * ((sys.bottom - sys.top) / scanDur));
-                    } else if (idx < this.systems.length - 1) {
-                        y = sys.bottom + (this.systems[idx+1].top - sys.bottom) * ((elapsed - scanDur) / transDur);
-                    } else { y = sys.bottom; }
+                    if (el <= sD) y = sys.top + (el * ((sys.bottom - sys.top) / sD));
+                    else if (idx < this.systems.length - 1) y = sys.bottom + (this.systems[idx+1].top - sys.bottom) * ((el - sD) / trD);
+                    else y = sys.bottom;
 
                     const line = document.getElementById('scanning-line');
                     line.style.top = y + '%';
-                    
-                    const rect = line.getBoundingClientRect();
-                    if (rect.top > window.innerHeight * 0.45) window.scrollBy(0, rect.top - window.innerHeight * 0.45);
+                    const r = line.getBoundingClientRect();
+                    if (r.top > window.innerHeight * 0.45) window.scrollBy(0, r.top - window.innerHeight * 0.45);
 
-                    if (elapsed < totalDur) requestAnimationFrame(tick);
-                    else resolve();
+                    if (el < tD) requestAnimationFrame(tick); else res();
                 };
                 requestAnimationFrame(tick);
             });
         },
 
-        click(high) {
+        click(h) {
             if (!document.getElementById('metronome-on').checked) return;
             if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = this.audioCtx.createOscillator();
-            const g = this.audioCtx.createGain();
-            osc.connect(g); g.connect(this.audioCtx.destination);
-            osc.frequency.value = high ? 1200 : 700;
-            g.gain.setValueAtTime(0.12, this.audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.06);
-            osc.start(); osc.stop(this.audioCtx.currentTime + 0.06);
+            const o = this.audioCtx.createOscillator(); const g = this.audioCtx.createGain();
+            o.connect(g); g.connect(this.audioCtx.destination);
+            o.frequency.value = h ? 1000 : 600;
+            g.gain.setValueAtTime(0.1, this.audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.05);
+            o.start(); o.stop(this.audioCtx.currentTime + 0.05);
         },
 
-        togglePause() {
-            this.isPaused = !this.isPaused;
-            document.getElementById('pause-btn').innerText = this.isPaused ? "RESUME" : "PAUSE";
-        },
+        togglePause() { this.isPaused = !this.isPaused; document.getElementById('pause-btn').innerText = this.isPaused ? "RESUME" : "PAUZE"; },
 
         stop() {
-            this.isRunning = false;
-            document.getElementById('main-body').className = '';
+            this.isRunning = false; document.getElementById('main-body').className = '';
             document.getElementById('master-header').style.transform = 'translateY(0)';
             document.getElementById('performance-overlay').style.display = 'none';
             document.getElementById('scanning-line').style.display = 'none';
-            this.systems.forEach(s => s.blocks.forEach(b => b.classList.remove('active')));
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     };
-
     Engine.init();
 </script>
-
 </body>
 </html>
