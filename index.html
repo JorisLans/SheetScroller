@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v9 - Central Focus</title>
+    <title>Precision Sheet Scroller v10 - Scanning Line</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -13,7 +13,6 @@
         }
         body { font-family: sans-serif; margin: 0; background: var(--bg); color: white; touch-action: manipulation; overflow-x: hidden; }
         
-        /* UI Paneel */
         #ui-layer { position: fixed; top: 0; width: 100%; background: var(--panel); padding: 15px; z-index: 1000; border-bottom: 2px solid var(--primary); display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
         .status-msg { background: var(--primary); padding: 8px 15px; border-radius: 10px; font-size: 14px; font-weight: bold; flex-basis: 100%; text-align: center; margin-bottom: 5px; }
         
@@ -23,12 +22,11 @@
         /* Markeringen */
         .system-box { position: absolute; left: 0; width: 100%; border: 3px solid var(--accent); pointer-events: none; z-index: 10; box-sizing: border-box; }
         .measure-block { position: absolute; height: 100%; pointer-events: none; border-right: 2px solid white; z-index: 5; box-sizing: border-box; }
-        .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 6px 12px; border-radius: 8px; font-weight: bold; font-size: 14px; z-index: 20; transform: translateY(-50%); box-shadow: 0 4px 6px rgba(0,0,0,0.3); text-align: center; }
+        .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 6px 12px; border-radius: 8px; font-weight: bold; font-size: 14px; z-index: 20; transform: translateY(-50%); text-align: center; }
 
-        /* Focus Lijn */
-        #focus-line { position: fixed; top: 50%; left: 0; width: 100%; height: 2px; background: rgba(231, 76, 60, 0.5); border-top: 1px dashed rgba(255,255,255,0.3); z-index: 999; pointer-events: none; display: none; }
+        /* DE SCANNING LIJN */
+        #scanning-line { position: absolute; left: 0; width: 100%; height: 4px; background: #ff0000; box-shadow: 0 0 15px #ff0000; z-index: 100; display: none; pointer-events: none; }
 
-        /* Knoppen */
         .btn { padding: 12px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; min-width: 90px; }
         .btn-start { background: var(--success); color: white; }
         .btn-pause { background: #e67e22; color: white; display: none; }
@@ -58,8 +56,9 @@
     <button id="stop-btn" class="btn btn-stop">STOP</button>
 </div>
 
-<div id="focus-line"></div>
-<div id="pdf-render-area"></div>
+<div id="pdf-render-area">
+    <div id="scanning-line"></div>
+</div>
 
 <script>
     const pdfjsLib = window['pdfjs-dist/build/pdf'];
@@ -81,7 +80,7 @@
     const startBtn = document.getElementById('start-btn');
     const pauseBtn = document.getElementById('pause-btn');
     const stopBtn = document.getElementById('stop-btn');
-    const focusLine = document.getElementById('focus-line');
+    const scanner = document.getElementById('scanning-line');
     const container = document.getElementById('pdf-render-area');
 
     document.getElementById('upload').addEventListener('change', async (e) => {
@@ -89,7 +88,7 @@
         if(!file) return;
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-        container.innerHTML = '';
+        container.innerHTML = '<div id="scanning-line"></div>';
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const viewport = page.getViewport({ scale: 1.5 });
@@ -119,17 +118,14 @@
             box.className = 'system-box';
             box.style.top = currentSystem.top + 'px';
             box.style.height = (y - currentSystem.top) + 'px';
-            
             const counter = document.createElement('div');
             counter.className = 'measure-counter';
             counter.style.top = (currentSystem.top + (y - currentSystem.top)/2) + 'px';
-            
             container.appendChild(box);
             container.appendChild(counter);
             currentSystem.counterEl = counter;
             updateCounter();
             visualElements.push(box, counter);
-            
             state = 'MEASURES';
             nextBtn.style.display = 'inline-block';
             stepEl.innerText = "4. Tik op de maatstrepen";
@@ -157,18 +153,13 @@
     }
 
     document.getElementById('undo-btn').addEventListener('click', () => {
-        if (state === 'BOTTOM') { state = 'TOP'; currentSystem = null; stepEl.innerText = "Tik op de BOVENKANT."; }
+        if (state === 'BOTTOM') { state = 'TOP'; currentSystem = null; }
         else if (state === 'MEASURES') {
             const lastEl = visualElements.pop();
             if (lastEl) {
                 lastEl.remove();
-                if (lastEl.className === 'system-box') { 
-                    visualElements.pop().remove(); 
-                    state = 'BOTTOM'; nextBtn.style.display = 'none'; 
-                } else { 
-                    currentSystem.measures.pop(); 
-                    updateCounter();
-                }
+                if (lastEl.className === 'system-box') { visualElements.pop().remove(); state = 'BOTTOM'; nextBtn.style.display = 'none'; }
+                else { currentSystem.measures.pop(); updateCounter(); }
             }
         }
     });
@@ -183,76 +174,73 @@
         finalBlock.style.width = (window.innerWidth - lastX) + 'px';
         finalBlock.style.background = (currentSystem.measures.length + 1) % 2 === 0 ? 'var(--measure-b)' : 'var(--measure-a)';
         container.appendChild(finalBlock);
-
         systems.push(currentSystem);
         currentSystem = null; visualElements = []; state = 'TOP';
         nextBtn.style.display = 'none';
-        stepEl.innerText = "Regel opgeslagen! Tik op de volgende.";
     });
 
-    // CENTRALE SCROLL LOGICA
+    // PERFORMANCE LOGIC MET RODE LIJN
     async function startPerformance() {
         if(systems.length === 0) return;
         isRunning = true; isPaused = false;
         startBtn.style.display = 'none';
         pauseBtn.style.display = 'inline-block';
         stopBtn.style.display = 'inline-block';
-        focusLine.style.display = 'block';
+        const scanningLine = document.getElementById('scanning-line');
+        scanningLine.style.display = 'block';
         
         const bpm = parseInt(document.getElementById('bpm').value);
         const beatsPerMeasure = parseInt(document.getElementById('time-sig').value);
         const viewportCenter = window.innerHeight / 2;
 
-        // Breng de eerste regel direct naar het midden
+        // Breng eerste regel naar midden
         const firstSystemMid = systems[0].top + (systems[0].bottom - systems[0].top) / 2;
         currentScrollY = firstSystemMid - viewportCenter;
         window.scrollTo({top: currentScrollY, behavior: 'smooth'});
-        await new Promise(r => setTimeout(r, 1200));
+        await new Promise(r => setTimeout(r, 1000));
 
         for (let i = currentSystemIndex; i < systems.length; i++) {
             if (!isRunning) break;
             currentSystemIndex = i;
             const sys = systems[i];
             
-            // Bereken waar we moeten eindigen: midden van de regel op midden van het scherm
-            const systemMidPoint = sys.top + (sys.bottom - sys.top) / 2;
-            const targetScrollY = systemMidPoint - viewportCenter;
-            
             const totalSeconds = ((sys.measures.length + 1) * beatsPerMeasure / bpm) * 60;
+            const targetScrollY = (sys.top + (sys.bottom - sys.top) / 2) - viewportCenter;
+            const scrollDist = targetScrollY - currentScrollY;
+            const scrollSpeed = scrollDist / totalSeconds;
             
-            // De afstand tussen de HUIDIGE scroll-positie en de TARGET scroll-positie
-            // Dit zorgt ervoor dat we witruimte automatisch "overbruggen"
-            const distanceToCover = targetScrollY - currentScrollY;
-            const speed = distanceToCover / totalSeconds; 
+            // Lijn snelheid (pixels per seconde binnen de regel)
+            const lineHeight = sys.bottom - sys.top;
+            const lineSpeed = lineHeight / totalSeconds;
 
-            await smoothScrollFocus(distanceToCover, speed);
+            await runSystem(sys.top, lineHeight, lineSpeed, scrollDist, scrollSpeed, totalSeconds);
         }
         if (isRunning) stopPerformance();
     }
 
-    function smoothScrollFocus(distance, speed) {
+    function runSystem(top, height, lineSpeed, scrollDist, scrollSpeed, duration) {
         return new Promise(resolve => {
-            let traveled = 0;
+            let elapsed = 0;
             let lastTime = performance.now();
+            const scanningLine = document.getElementById('scanning-line');
 
             function step(now) {
                 if (!isRunning) return resolve();
-                if (isPaused) {
-                    lastTime = now;
-                    scrollAnimationFrame = requestAnimationFrame(step);
-                    return;
-                }
+                if (isPaused) { lastTime = now; scrollAnimationFrame = requestAnimationFrame(step); return; }
 
                 const deltaTime = (now - lastTime) / 1000;
                 lastTime = now;
+                elapsed += deltaTime;
 
-                const pixelsToMove = speed * deltaTime;
-                currentScrollY += pixelsToMove;
-                traveled += Math.abs(pixelsToMove);
+                // Beweeg de rode lijn
+                const linePos = top + (elapsed * lineSpeed);
+                scanningLine.style.top = linePos + 'px';
 
+                // Beweeg de scroll
+                currentScrollY += scrollSpeed * deltaTime;
                 window.scrollTo(0, currentScrollY);
 
-                if (Math.abs(traveled) < Math.abs(distance)) {
+                if (elapsed < duration) {
                     scrollAnimationFrame = requestAnimationFrame(step);
                 } else {
                     resolve();
@@ -265,11 +253,11 @@
     function stopPerformance() {
         isRunning = false; isPaused = false; currentSystemIndex = 0;
         cancelAnimationFrame(scrollAnimationFrame);
+        const scanningLine = document.getElementById('scanning-line');
+        if (scanningLine) scanningLine.style.display = 'none';
         startBtn.style.display = 'inline-block';
         pauseBtn.style.display = 'none';
         stopBtn.style.display = 'none';
-        focusLine.style.display = 'none';
-        stepEl.innerText = "Einde.";
         window.scrollTo({top: 0, behavior: 'smooth'});
     }
 
