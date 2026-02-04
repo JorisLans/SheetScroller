@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v10 - Scanning Line</title>
+    <title>Precision Sheet Scroller v11 - Comfort Zone</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -19,13 +19,14 @@
         #pdf-render-area { position: relative; margin-top: 200px; display: flex; flex-direction: column; align-items: center; width: 100%; }
         canvas { background: white; margin-bottom: 20px; box-shadow: 0 0 30px rgba(0,0,0,0.5); max-width: 98vw; }
         
-        /* Markeringen */
         .system-box { position: absolute; left: 0; width: 100%; border: 3px solid var(--accent); pointer-events: none; z-index: 10; box-sizing: border-box; }
         .measure-block { position: absolute; height: 100%; pointer-events: none; border-right: 2px solid white; z-index: 5; box-sizing: border-box; }
         .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 6px 12px; border-radius: 8px; font-weight: bold; font-size: 14px; z-index: 20; transform: translateY(-50%); text-align: center; }
 
-        /* DE SCANNING LIJN */
         #scanning-line { position: absolute; left: 0; width: 100%; height: 4px; background: #ff0000; box-shadow: 0 0 15px #ff0000; z-index: 100; display: none; pointer-events: none; }
+        
+        /* Hulplijn voor de 50% grens (alleen zichtbaar tijdens instellen/debuggen indien gewenst) */
+        #limit-line { position: fixed; top: 50%; left: 0; width: 100%; height: 1px; border-top: 1px dashed rgba(255,255,255,0.2); z-index: 99; pointer-events: none; display: none; }
 
         .btn { padding: 12px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; min-width: 90px; }
         .btn-start { background: var(--success); color: white; }
@@ -50,12 +51,13 @@
         <option value="6">6/8</option>
     </select></div>
     <button id="undo-btn" class="btn btn-undo">UNDO</button>
-    <button id="next-system-btn" class="btn btn-next">BEVESTIG REGEL</button>
+    <button id="next-system-btn" class="btn btn-next">BEVESTIG</button>
     <button id="start-btn" class="btn btn-start">START</button>
     <button id="pause-btn" class="btn btn-pause">PAUZE</button>
     <button id="stop-btn" class="btn btn-stop">STOP</button>
 </div>
 
+<div id="limit-line"></div>
 <div id="pdf-render-area">
     <div id="scanning-line"></div>
 </div>
@@ -110,7 +112,7 @@
         if (state === 'TOP') {
             currentSystem = { top: y, bottom: 0, measures: [], counterEl: null };
             state = 'BOTTOM';
-            stepEl.innerText = "3. Tik op de ONDERKANT van de regel";
+            stepEl.innerText = "3. Tik op de ONDERKANT";
         } 
         else if (state === 'BOTTOM') {
             currentSystem.bottom = y;
@@ -149,7 +151,7 @@
     function updateCounter() {
         const beats = parseInt(document.getElementById('time-sig').value);
         const m = currentSystem.measures.length + 1;
-        currentSystem.counterEl.innerHTML = `Maten: ${m}<br><small>Beats: ${m * beats}</small>`;
+        currentSystem.counterEl.innerHTML = `M: ${m} | B: ${m * beats}`;
     }
 
     document.getElementById('undo-btn').addEventListener('click', () => {
@@ -179,25 +181,22 @@
         nextBtn.style.display = 'none';
     });
 
-    // PERFORMANCE LOGIC MET RODE LIJN
+    // PERFORMANCE LOGIC MET COMFORT ZONE
     async function startPerformance() {
         if(systems.length === 0) return;
         isRunning = true; isPaused = false;
         startBtn.style.display = 'none';
         pauseBtn.style.display = 'inline-block';
         stopBtn.style.display = 'inline-block';
-        const scanningLine = document.getElementById('scanning-line');
-        scanningLine.style.display = 'block';
+        scanner.style.display = 'block';
+        document.getElementById('limit-line').style.display = 'block';
         
         const bpm = parseInt(document.getElementById('bpm').value);
         const beatsPerMeasure = parseInt(document.getElementById('time-sig').value);
-        const viewportCenter = window.innerHeight / 2;
+        const screenHeight = window.innerHeight;
+        const comfortLimit = screenHeight / 2; // De 50% grens
 
-        // Breng eerste regel naar midden
-        const firstSystemMid = systems[0].top + (systems[0].bottom - systems[0].top) / 2;
-        currentScrollY = firstSystemMid - viewportCenter;
-        window.scrollTo({top: currentScrollY, behavior: 'smooth'});
-        await new Promise(r => setTimeout(r, 1000));
+        currentScrollY = window.scrollY;
 
         for (let i = currentSystemIndex; i < systems.length; i++) {
             if (!isRunning) break;
@@ -205,56 +204,52 @@
             const sys = systems[i];
             
             const totalSeconds = ((sys.measures.length + 1) * beatsPerMeasure / bpm) * 60;
-            const targetScrollY = (sys.top + (sys.bottom - sys.top) / 2) - viewportCenter;
-            const scrollDist = targetScrollY - currentScrollY;
-            const scrollSpeed = scrollDist / totalSeconds;
-            
-            // Lijn snelheid (pixels per seconde binnen de regel)
             const lineHeight = sys.bottom - sys.top;
             const lineSpeed = lineHeight / totalSeconds;
 
-            await runSystem(sys.top, lineHeight, lineSpeed, scrollDist, scrollSpeed, totalSeconds);
+            await new Promise(resolve => {
+                let elapsed = 0;
+                let lastTime = performance.now();
+
+                function step(now) {
+                    if (!isRunning) return resolve();
+                    if (isPaused) { lastTime = now; scrollAnimationFrame = requestAnimationFrame(step); return; }
+
+                    const deltaTime = (now - lastTime) / 1000;
+                    lastTime = now;
+                    elapsed += deltaTime;
+
+                    // 1. Bereken nieuwe positie van de rode lijn
+                    const linePos = sys.top + (elapsed * lineSpeed);
+                    scanner.style.top = linePos + 'px';
+
+                    // 2. Comfort Zone Check: Waar staat de lijn op het scherm?
+                    const lineOnScreen = linePos - currentScrollY;
+
+                    // 3. Als de lijn onder de 50% komt, scroll dan mee
+                    if (lineOnScreen > comfortLimit) {
+                        const correction = lineOnScreen - comfortLimit;
+                        currentScrollY += correction;
+                        window.scrollTo(0, currentScrollY);
+                    }
+
+                    if (elapsed < totalSeconds) {
+                        scrollAnimationFrame = requestAnimationFrame(step);
+                    } else {
+                        resolve();
+                    }
+                }
+                scrollAnimationFrame = requestAnimationFrame(step);
+            });
         }
         if (isRunning) stopPerformance();
-    }
-
-    function runSystem(top, height, lineSpeed, scrollDist, scrollSpeed, duration) {
-        return new Promise(resolve => {
-            let elapsed = 0;
-            let lastTime = performance.now();
-            const scanningLine = document.getElementById('scanning-line');
-
-            function step(now) {
-                if (!isRunning) return resolve();
-                if (isPaused) { lastTime = now; scrollAnimationFrame = requestAnimationFrame(step); return; }
-
-                const deltaTime = (now - lastTime) / 1000;
-                lastTime = now;
-                elapsed += deltaTime;
-
-                // Beweeg de rode lijn
-                const linePos = top + (elapsed * lineSpeed);
-                scanningLine.style.top = linePos + 'px';
-
-                // Beweeg de scroll
-                currentScrollY += scrollSpeed * deltaTime;
-                window.scrollTo(0, currentScrollY);
-
-                if (elapsed < duration) {
-                    scrollAnimationFrame = requestAnimationFrame(step);
-                } else {
-                    resolve();
-                }
-            }
-            scrollAnimationFrame = requestAnimationFrame(step);
-        });
     }
 
     function stopPerformance() {
         isRunning = false; isPaused = false; currentSystemIndex = 0;
         cancelAnimationFrame(scrollAnimationFrame);
-        const scanningLine = document.getElementById('scanning-line');
-        if (scanningLine) scanningLine.style.display = 'none';
+        scanner.style.display = 'none';
+        document.getElementById('limit-line').style.display = 'none';
         startBtn.style.display = 'inline-block';
         pauseBtn.style.display = 'none';
         stopBtn.style.display = 'none';
