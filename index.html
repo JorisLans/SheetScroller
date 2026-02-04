@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v38 - Smart Undo Fix</title>
+    <title>Precision Sheet Scroller v40 - Cross-Device Ready</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -14,6 +14,7 @@
         }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: white; overflow-x: hidden; }
         
+        /* UI is nu volledig responsive */
         #ui-layer { 
             position: sticky; top: 0; width: 100%; 
             background: var(--panel); border-bottom: 3px solid var(--primary); 
@@ -22,41 +23,41 @@
         #ui-layer.performance-hidden { display: none; }
         
         .status-msg { background: var(--primary); text-align: center; padding: 8px; font-weight: bold; font-size: 13px; }
-        .controls-row { display: flex; gap: 12px; padding: 12px; align-items: center; justify-content: center; flex-wrap: wrap; }
+        .controls-row { 
+            display: flex; gap: 8px; padding: 10px; 
+            align-items: center; justify-content: center; 
+            flex-wrap: wrap; /* Knoppen springen naar volgende regel op mobiel */
+        }
         
-        #pdf-render-area { position: relative; display: flex; flex-direction: column; align-items: center; width: 100%; z-index: 1; }
-        canvas { background: white; margin: 20px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 95vw; }
+        #pdf-render-area { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; }
+        canvas { background: white; margin: 10px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.4); width: 100% !important; height: auto !important; }
         
-        #perf-controls { position: fixed; bottom: 25px; right: 25px; z-index: 21000; display: none; gap: 12px; }
+        #perf-controls { position: fixed; bottom: 20px; right: 20px; z-index: 21000; display: none; gap: 10px; }
         
         #scanning-line { 
-            position: absolute; left: 0; width: 100%; height: 6px; 
-            background: #ff0000; box-shadow: 0 0 20px #ff0000; 
-            z-index: 999999; display: none; pointer-events: none; 
+            position: absolute; left: 0; width: 100%; height: 5px; 
+            background: #ff0000; box-shadow: 0 0 15px #ff0000; 
+            z-index: 9999; display: none; pointer-events: none; 
         }
 
         #beat-indicator {
             position: absolute; left: 50%; bottom: -35px; transform: translateX(-50%);
-            background: #ff0000; color: white; padding: 4px 14px;
-            border-radius: 20px; font-weight: bold; font-size: 14px; white-space: nowrap;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.3);
+            background: #ff0000; color: white; padding: 4px 12px;
+            border-radius: 15px; font-weight: bold; font-size: 13px; white-space: nowrap;
         }
         
-        .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition: all 0.2s; }
+        .btn { padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px; }
         .btn-start { background: var(--success); color: white; }
-        .btn-pause { background: var(--warning); color: white; }
-        .btn-stop { background: var(--danger); color: white; }
-        .btn-confirm { background: var(--accent); color: #000; border: 2px solid white; font-weight: 800; }
+        .btn-confirm { background: var(--accent); color: #000; }
         .btn-undo { background: #64748b; color: white; }
         
-        input, select { padding: 8px; border-radius: 6px; background: #334155; color: white; border: 1px solid #475569; }
-        
-        .toggle-container { background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px; display: flex; align-items: center; gap: 8px; border: 1px solid #475569; }
+        input, select { padding: 6px; border-radius: 4px; background: #334155; color: white; border: 1px solid #475569; font-size: 12px; }
 
+        /* Setup visuals - Gebruiken nu % voor breedte */
         .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--accent); pointer-events: none; z-index: 10; opacity: 0.4; }
-        .measure-block { position: absolute; pointer-events: none; border-right: 2px solid rgba(255,255,255,0.5); z-index: 5; }
-        .measure-block.active { background: rgba(255, 255, 255, 0.4) !important; border: 2px solid #fff; box-shadow: inset 0 0 15px white; opacity: 1; z-index: 100; }
-        .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 4px 10px; border-radius: 4px; font-weight: 900; font-size: 14px; z-index: 2000; transform: translateY(-50%); box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        .measure-block { position: absolute; pointer-events: none; border-right: 1.5px solid rgba(255,255,255,0.4); z-index: 5; }
+        .measure-block.active { background: rgba(255, 255, 255, 0.4) !important; border: 2px solid #fff; opacity: 1; z-index: 100; }
+        .measure-counter { position: absolute; right: 5%; background: var(--accent); color: black; padding: 2px 8px; border-radius: 4px; font-weight: 900; font-size: 12px; z-index: 2000; transform: translateY(-50%); }
     </style>
 </head>
 <body>
@@ -66,25 +67,19 @@
 <div id="ui-layer">
     <div class="status-msg" id="workflow-step">1. Upload PDF</div>
     <div class="controls-row">
-        <input type="file" id="upload">
-        <div>BPM <input type="number" id="bpm" value="120" style="width:55px;"></div>
+        <input type="file" id="upload" style="width: 150px;">
+        <div>BPM <input type="number" id="bpm" value="120" style="width:45px;"></div>
         <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select>
-        
-        <div class="toggle-container">
-            <input type="checkbox" id="metro-switch" checked>
-            <label for="metro-switch" style="font-size:11px; cursor:pointer;">🔊 METRO</label>
-        </div>
-
-        <div style="font-size: 11px;">Transitie <input type="range" id="glide-percent" min="0" max="40" value="15" style="width:60px;"></div>
+        <label style="font-size:11px;"><input type="checkbox" id="metro-switch" checked> 🔊</label>
         <button id="undo-btn" class="btn btn-undo">Undo</button>
-        <button id="next-system-btn" class="btn btn-confirm" style="display:none;">BEVESTIG REGEL (<span id="live-m-count">1</span> maten)</button>
+        <button id="next-system-btn" class="btn btn-confirm" style="display:none;">Bevestig (<span id="live-m-count">1</span>)</button>
         <button id="start-btn" class="btn btn-start">START</button>
     </div>
 </div>
 
 <div id="perf-controls">
-    <button id="pause-btn" class="btn btn-pause">PAUZE</button>
-    <button id="stop-btn" class="btn btn-stop">STOP</button>
+    <button id="pause-btn" class="btn btn-pause" style="background:var(--warning); color:white;">||</button>
+    <button id="stop-btn" class="btn btn-stop" style="background:var(--danger); color:white;">X</button>
 </div>
 
 <div id="pdf-render-area"></div>
@@ -101,7 +96,7 @@
     let scrollAnimationFrame;
     let lastBeatLogged = -1;
     let audioCtx = null;
-    let visualHistory = []; // Houdt bij wat we getekend hebben: {type: 'BOX'|'MEASURE', el: DOMElement}
+    let visualHistory = []; 
 
     const scanner = document.getElementById('scanning-line');
     const beatDisplay = document.getElementById('beat-indicator');
@@ -119,7 +114,7 @@
         const gain = audioCtx.createGain();
         osc.connect(gain); gain.connect(audioCtx.destination);
         osc.frequency.value = isFirstBeat ? 1000 : 500;
-        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.08);
         osc.start(); osc.stop(audioCtx.currentTime + 0.08);
     }
@@ -132,32 +127,33 @@
         container.innerHTML = '';
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
-            const viewport = page.getViewport({ scale: 1.5 });
+            const viewport = page.getViewport({ scale: 2.0 }); // Render op hoge kwaliteit
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width; canvas.height = viewport.height;
             await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
             container.appendChild(canvas);
         }
-        state = 'TOP'; updateWorkflow("STAP 1: Klik BOVENKANT notenbalk");
+        state = 'TOP'; updateWorkflow("Klik BOVENKANT regel");
     });
 
     container.addEventListener('mousedown', (e) => {
         if (state === 'IDLE' || isRunning) return;
         const rect = container.getBoundingClientRect();
+        // Gebruik pageY voor absolute positie t.o.v. de container
         const y = (e.pageY - (rect.top + window.scrollY)); 
-        const x = (e.pageX - rect.left);
+        const xPct = ((e.pageX - rect.left) / rect.width) * 100; // Altijd in %
         
         if (state === 'TOP') { 
-            currentSystem = { top: y, bottom: 0, measures: [], visualBlocks: [], maxWidth: 0 }; 
+            currentSystem = { top: y, bottom: 0, measures: [], visualBlocks: [] }; 
             state = 'BOTTOM'; 
-            updateWorkflow("STAP 2: Klik ONDERKANT notenbalk");
+            updateWorkflow("Klik ONDERKANT regel");
         }
         else if (state === 'BOTTOM') {
             currentSystem.bottom = y;
-            currentSystem.maxWidth = container.clientWidth;
-            
             const box = document.createElement('div'); box.className = 'system-box';
-            box.style.top = currentSystem.top + 'px'; box.style.height = (y - currentSystem.top) + 'px';
+            box.style.top = y + 'px'; // Wordt later gecorrigeerd naar top
+            box.style.top = currentSystem.top + 'px'; 
+            box.style.height = (y - currentSystem.top) + 'px';
             
             const counter = document.createElement('div'); counter.className = 'measure-counter';
             counter.style.top = (currentSystem.top + (y - currentSystem.top)/2) + 'px';
@@ -165,75 +161,58 @@
             
             container.appendChild(box); container.appendChild(counter);
             currentSystem.boxEl = box; currentSystem.counterEl = counter;
-            
             visualHistory.push({ type: 'BOX', el: box, counterEl: counter });
             
             state = 'MEASURES';
             document.getElementById('next-system-btn').style.display = 'inline-block';
             liveMCountDisp.innerText = "1";
-            updateWorkflow("STAP 3: Klik op MAATSTREPEN");
         } else if (state === 'MEASURES') {
-            const lastX = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
-            currentSystem.measures.push(x);
-            
+            const lastPct = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
+            currentSystem.measures.push(xPct);
             const block = document.createElement('div'); block.className = 'measure-block';
             block.style.top = currentSystem.top + 'px'; block.style.height = (currentSystem.bottom - currentSystem.top) + 'px';
-            block.style.left = lastX + 'px'; block.style.width = (x - lastX) + 'px';
+            block.style.left = lastPct + '%'; block.style.width = (xPct - lastPct) + '%';
             block.style.background = currentSystem.measures.length % 2 === 0 ? 'var(--measure-b)' : 'var(--measure-a)';
-            
             container.appendChild(block);
             currentSystem.visualBlocks.push(block);
             visualHistory.push({ type: 'MEASURE', el: block });
-            
-            const count = currentSystem.measures.length + 1;
-            currentSystem.counterEl.innerText = `M: ${count}`;
-            liveMCountDisp.innerText = count;
+            liveMCountDisp.innerText = currentSystem.measures.length + 1;
+            currentSystem.counterEl.innerText = `M: ${currentSystem.measures.length + 1}`;
         }
     });
 
     document.getElementById('undo-btn').addEventListener('click', () => {
-        if (visualHistory.length === 0) return;
-        
-        const lastAction = visualHistory.pop();
-        lastAction.el.remove();
-        
-        if (lastAction.type === 'MEASURE') {
-            // Verwijder laatste maat uit data
+        if (!visualHistory.length) return;
+        const last = visualHistory.pop();
+        last.el.remove();
+        if (last.type === 'MEASURE') {
             currentSystem.measures.pop();
             currentSystem.visualBlocks.pop();
-            const count = currentSystem.measures.length + 1;
-            currentSystem.counterEl.innerText = `M: ${count}`;
-            liveMCountDisp.innerText = count;
-        } 
-        else if (lastAction.type === 'BOX') {
-            // Verwijder ook de teller en reset naar STAP 1
-            lastAction.counterEl.remove();
-            currentSystem = null;
-            state = 'TOP';
+            liveMCountDisp.innerText = currentSystem.measures.length + 1;
+            currentSystem.counterEl.innerText = `M: ${currentSystem.measures.length + 1}`;
+        } else {
+            last.counterEl.remove();
+            currentSystem = null; state = 'TOP';
             document.getElementById('next-system-btn').style.display = 'none';
-            updateWorkflow("STAP 1: Klik BOVENKANT notenbalk");
+            updateWorkflow("Klik BOVENKANT regel");
         }
     });
 
     document.getElementById('next-system-btn').addEventListener('click', () => {
-        const lastX = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
+        const lastPct = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
         const block = document.createElement('div'); block.className = 'measure-block';
         block.style.top = currentSystem.top + 'px'; block.style.height = (currentSystem.bottom - currentSystem.top) + 'px';
-        block.style.left = lastX + 'px'; block.style.width = (currentSystem.maxWidth - lastX) + 'px';
+        block.style.left = lastPct + '%'; block.style.width = (100 - lastPct) + '%';
         block.style.background = (currentSystem.measures.length + 1) % 2 === 0 ? 'var(--measure-b)' : 'var(--measure-a)';
-        
         container.appendChild(block);
         currentSystem.visualBlocks.push(block);
         systems.push(currentSystem);
-        
-        // Na bevestiging legen we de geschiedenis van deze regel zodat undo niet teruggaat naar vorige regels
-        visualHistory = []; 
-        currentSystem = null; state = 'TOP';
+        visualHistory = []; currentSystem = null; state = 'TOP';
         document.getElementById('next-system-btn').style.display = 'none';
-        updateWorkflow("Regel opgeslagen! Klik volgende regel.");
+        updateWorkflow("Regel OK! Klik volgende.");
     });
 
-    // --- Performance Logic (gelijk aan v37) ---
+    // Unified Responsive Performance Engine
     function updateBeatGlobal(elapsedInSys, totalSysDur, numM, beatsPerM, sysIdx) {
         const progress = Math.min(elapsedInSys / totalSysDur, 0.999);
         const totalBeatsInSys = numM * beatsPerM;
@@ -241,24 +220,25 @@
         const currentMIdx = Math.floor(currentTotalBeat / beatsPerM);
         const beatInM = (currentTotalBeat % beatsPerM) + 1;
         if (currentTotalBeat !== lastBeatLogged) { playClick(beatInM === 1); lastBeatLogged = currentTotalBeat; }
-        beatDisplay.innerText = `MAAT ${currentMIdx + 1} | BEAT ${beatInM}`;
-        systems.forEach(s => s.visualBlocks.forEach(b => b.classList.remove('active')));
-        if(systems[sysIdx].visualBlocks[currentMIdx]) systems[sysIdx].visualBlocks[currentMIdx].classList.add('active');
+        beatDisplay.innerText = `M ${currentMIdx + 1} | B ${beatInM}`;
+        systems.forEach((s, idx) => s.visualBlocks.forEach(b => b.classList.toggle('active', idx === sysIdx && s.visualBlocks.indexOf(b) === currentMIdx)));
     }
 
     async function startPerformance() {
-        if(systems.length === 0) return;
+        if(!systems.length) return;
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        isRunning = true; isPaused = false;
+        isRunning = true;
         document.getElementById('ui-layer').classList.add('performance-hidden');
         document.getElementById('perf-controls').style.display = 'flex';
         scanner.style.display = 'block'; beatDisplay.style.display = 'block';
+        
         const bpm = parseInt(document.getElementById('bpm').value);
         const beats = parseInt(document.getElementById('time-sig').value);
         const glideFactor = parseInt(document.getElementById('glide-percent').value) / 100;
+
         window.scrollTo({top: systems[0].top - 50, behavior: 'smooth'});
         await new Promise(r => setTimeout(r, 600));
+
         for (let i = 0; i < systems.length; i++) {
             if (!isRunning) break;
             const sys = systems[i];
@@ -266,26 +246,31 @@
             const totalDur = (numM * beats / bpm) * 60;
             const transDur = (i < systems.length - 1) ? totalDur * glideFactor : 0;
             const scanDur = totalDur - transDur;
-            const speed = (sys.bottom - sys.top) / scanDur;
+
             let sysStartTime = performance.now(); lastBeatLogged = -1;
+
             await new Promise(res => {
                 function step(now) {
                     if (!isRunning) return res();
                     if (isPaused) { sysStartTime += (performance.now() - now); scrollAnimationFrame = requestAnimationFrame(step); return; }
                     const elapsed = (now - sysStartTime) / 1000;
                     updateBeatGlobal(elapsed, totalDur, numM, beats, i);
+
+                    const cRect = container.getBoundingClientRect();
+                    let currentY;
                     if (elapsed <= scanDur) {
-                        const pos = sys.top + (elapsed * speed);
-                        const cRect = container.getBoundingClientRect();
-                        scanner.style.top = (pos + cRect.top + window.scrollY) + 'px';
-                    } else if (i < systems.length - 1 && elapsed > scanDur && elapsed <= totalDur) {
-                        const prog = (elapsed - scanDur) / transDur;
-                        const pos = sys.bottom + (systems[i+1].top - sys.bottom) * prog;
-                        const cRect = container.getBoundingClientRect();
-                        scanner.style.top = (pos + cRect.top + window.scrollY) + 'px';
+                        currentY = sys.top + (elapsed * ((sys.bottom - sys.top) / scanDur));
+                    } else if (i < systems.length - 1) {
+                        const p = (elapsed - scanDur) / transDur;
+                        currentY = sys.bottom + (systems[i+1].top - sys.bottom) * p;
+                    } else {
+                        currentY = sys.bottom;
                     }
+                    
+                    scanner.style.top = (currentY + cRect.top + window.scrollY) + 'px';
                     const limit = window.innerHeight * 0.33;
                     if (scanner.getBoundingClientRect().top > limit) window.scrollBy(0, scanner.getBoundingClientRect().top - limit);
+                    
                     if (elapsed < totalDur) scrollAnimationFrame = requestAnimationFrame(step); else res();
                 }
                 scrollAnimationFrame = requestAnimationFrame(step);
@@ -299,13 +284,12 @@
         document.getElementById('ui-layer').classList.remove('performance-hidden');
         document.getElementById('perf-controls').style.display = 'none';
         scanner.style.display = 'none'; beatDisplay.style.display = 'none';
-        systems.forEach(s => s.visualBlocks.forEach(b => b.classList.remove('active')));
     }
 
     document.getElementById('start-btn').addEventListener('click', startPerformance);
     document.getElementById('stop-btn').addEventListener('click', stopPerformance);
     document.getElementById('pause-btn').addEventListener('click', () => {
-        isPaused = !isPaused; document.getElementById('pause-btn').innerText = isPaused ? "VERDER" : "PAUZE";
+        isPaused = !isPaused; document.getElementById('pause-btn').innerText = isPaused ? ">" : "||";
     });
 </script>
 </body>
