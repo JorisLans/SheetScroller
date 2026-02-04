@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v19</title>
+    <title>Precision Sheet Scroller v20 - Clean Mode</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -19,17 +19,10 @@
         #pdf-render-area { position: relative; margin-top: 250px; display: flex; flex-direction: column; align-items: center; width: 100%; min-height: 100vh; z-index: 1; }
         canvas { background: white; margin-bottom: 20px; box-shadow: 0 0 30px rgba(0,0,0,0.5); max-width: 98vw; }
         
-        /* DE RODE LIJN - Extreem hoge z-index en felle kleur */
         #scanning-line { 
-            position: absolute; 
-            left: 0; 
-            width: 100%; 
-            height: 6px; 
-            background: #ff0000 !important; 
-            box-shadow: 0 0 20px #ff0000; 
-            z-index: 9999 !important; 
-            display: none; 
-            pointer-events: none; 
+            position: absolute; left: 0; width: 100%; height: 6px; 
+            background: #ff0000 !important; box-shadow: 0 0 20px #ff0000; 
+            z-index: 9999; display: none; pointer-events: none; 
         }
 
         #limit-line { position: fixed; top: 33.33%; left: 0; width: 100%; height: 1px; border-top: 2px dashed rgba(255,255,255,0.5); z-index: 1000; pointer-events: none; display: none; }
@@ -54,10 +47,14 @@
     <input type="file" id="upload" style="width: 160px;">
     <div>BPM: <input type="number" id="bpm" value="120" style="width:55px;"></div>
     <div>Maat: <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select></div>
+    
     <div class="slider-container">
         Transitie: <input type="range" id="glide-percent" min="0" max="25" value="10" style="width:80px;">
         <span id="glide-val">10%</span>
     </div>
+
+    <div>Weergave: <select id="view-mode"><option value="FULL">Begeleid</option><option value="CLEAN">Schoon</option></select></div>
+
     <button id="undo-btn" class="btn btn-undo">UNDO</button>
     <button id="next-system-btn" class="btn btn-next" style="display:none; background: var(--accent);">BEVESTIG</button>
     <button id="start-btn" class="btn btn-start">START</button>
@@ -66,9 +63,7 @@
 </div>
 
 <div id="limit-line"></div>
-<div id="pdf-render-area">
-    <div id="scanning-line"></div>
-</div>
+<div id="pdf-render-area"><div id="scanning-line"></div></div>
 
 <script>
     const pdfjsLib = window['pdfjs-dist/build/pdf'];
@@ -95,12 +90,8 @@
         if(!file) return;
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-        
-        // Zorg dat de scanner behouden blijft bij leegmaken
         const scannerEl = document.getElementById('scanning-line');
-        container.innerHTML = '';
-        container.appendChild(scannerEl);
-        
+        container.innerHTML = ''; container.appendChild(scannerEl);
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const viewport = page.getViewport({ scale: 1.5 });
@@ -109,8 +100,7 @@
             await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
             container.appendChild(canvas);
         }
-        state = 'TOP';
-        document.getElementById('workflow-step').innerText = "2. Tik op BOVENKANT van regel";
+        state = 'TOP'; document.getElementById('workflow-step').innerText = "2. Tik op BOVENKANT";
     });
 
     container.addEventListener('mousedown', (e) => {
@@ -118,38 +108,25 @@
         const rect = container.getBoundingClientRect();
         const y = (e.pageY) - (rect.top + window.scrollY);
         const x = (e.pageX) - rect.left;
-
-        if (state === 'TOP') {
-            currentSystem = { top: y, bottom: 0, measures: [] };
-            state = 'BOTTOM';
-        } else if (state === 'BOTTOM') {
+        if (state === 'TOP') { currentSystem = { top: y, bottom: 0, measures: [] }; state = 'BOTTOM'; }
+        else if (state === 'BOTTOM') {
             currentSystem.bottom = y;
-            const box = document.createElement('div');
-            box.className = 'system-box';
-            box.style.top = currentSystem.top + 'px';
-            box.style.height = (y - currentSystem.top) + 'px';
-            const counter = document.createElement('div');
-            counter.className = 'measure-counter';
+            const box = document.createElement('div'); box.className = 'system-box';
+            box.style.top = currentSystem.top + 'px'; box.style.height = (y - currentSystem.top) + 'px';
+            const counter = document.createElement('div'); counter.className = 'measure-counter';
             counter.style.top = (currentSystem.top + (y - currentSystem.top)/2) + 'px';
             container.appendChild(box); container.appendChild(counter);
-            currentSystem.counterEl = counter;
-            state = 'MEASURES';
+            currentSystem.counterEl = counter; state = 'MEASURES';
             document.getElementById('next-system-btn').style.display = 'inline-block';
-            visualElements.push(box, counter);
-            updateCounter();
+            visualElements.push(box, counter); updateCounter();
         } else if (state === 'MEASURES') {
             const lastX = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
             currentSystem.measures.push(x);
-            const block = document.createElement('div');
-            block.className = 'measure-block';
-            block.style.top = currentSystem.top + 'px';
-            block.style.height = (currentSystem.bottom - currentSystem.top) + 'px';
-            block.style.left = lastX + 'px';
-            block.style.width = (x - lastX) + 'px';
+            const block = document.createElement('div'); block.className = 'measure-block';
+            block.style.top = currentSystem.top + 'px'; block.style.height = (currentSystem.bottom - currentSystem.top) + 'px';
+            block.style.left = lastX + 'px'; block.style.width = (x - lastX) + 'px';
             block.style.background = currentSystem.measures.length % 2 === 0 ? 'var(--measure-b)' : 'var(--measure-a)';
-            container.appendChild(block);
-            visualElements.push(block);
-            updateCounter();
+            container.appendChild(block); visualElements.push(block); updateCounter();
         }
     });
 
@@ -163,13 +140,10 @@
         const lastX = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
         const finalBlock = document.createElement('div');
         finalBlock.className = 'measure-block';
-        finalBlock.style.top = currentSystem.top + 'px';
-        finalBlock.style.height = (currentSystem.bottom - currentSystem.top) + 'px';
-        finalBlock.style.left = lastX + 'px';
-        finalBlock.style.width = (window.innerWidth - lastX) + 'px';
+        finalBlock.style.top = currentSystem.top + 'px'; finalBlock.style.height = (currentSystem.bottom - currentSystem.top) + 'px';
+        finalBlock.style.left = lastX + 'px'; finalBlock.style.width = (window.innerWidth - lastX) + 'px';
         finalBlock.style.background = (currentSystem.measures.length + 1) % 2 === 0 ? 'var(--measure-b)' : 'var(--measure-a)';
-        container.appendChild(finalBlock);
-        systems.push(currentSystem);
+        container.appendChild(finalBlock); systems.push(currentSystem);
         currentSystem = null; visualElements = []; state = 'TOP';
         document.getElementById('next-system-btn').style.display = 'none';
     });
@@ -183,17 +157,24 @@
         }
     }
 
+    function setVisibility(mode) {
+        const isClean = mode === 'CLEAN';
+        scanner.style.display = isClean ? 'none' : 'block';
+        document.querySelectorAll('.system-box, .measure-block, .measure-counter').forEach(el => {
+            el.style.visibility = isClean ? 'hidden' : 'visible';
+        });
+    }
+
     async function startPerformance() {
         if(systems.length === 0) return;
         isRunning = true; isPaused = false;
+        const mode = document.getElementById('view-mode').value;
+        setVisibility(mode);
+        
         document.getElementById('start-btn').style.display = 'none';
         document.getElementById('pause-btn').style.display = 'inline-block';
         document.getElementById('stop-btn').style.display = 'inline-block';
-        document.getElementById('limit-line').style.display = 'block';
-        
-        // Forceer zichtbaarheid
-        scanner.style.display = 'block';
-        scanner.style.opacity = '1';
+        document.getElementById('limit-line').style.display = mode === 'CLEAN' ? 'none' : 'block';
         
         const bpm = parseInt(document.getElementById('bpm').value);
         const beats = parseInt(document.getElementById('time-sig').value);
@@ -212,7 +193,6 @@
             const scanDur = totalDur - transitionDur;
             const speed = (sys.bottom - sys.top) / scanDur;
 
-            // 1. SCAN
             await new Promise(res => {
                 let start = performance.now();
                 function step(now) {
@@ -222,29 +202,25 @@
                     const pos = sys.top + (elapsed * speed);
                     scanner.style.top = pos + 'px';
                     updateScroll(pos, limit);
-                    if (elapsed < scanDur) scrollAnimationFrame = requestAnimationFrame(step);
-                    else res();
+                    if (elapsed < scanDur) scrollAnimationFrame = requestAnimationFrame(step); else res();
                 }
                 scrollAnimationFrame = requestAnimationFrame(step);
             });
 
-            // 2. GLIDE (met scroll-support)
             if (i < systems.length - 1 && isRunning) {
                 const next = systems[i+1];
                 await new Promise(res => {
                     let start = performance.now();
-                    scanner.style.opacity = "0.6";
                     function gStep(now) {
                         if (!isRunning) return res();
                         if (isPaused) { start += (performance.now() - now); scrollAnimationFrame = requestAnimationFrame(gStep); return; }
                         const elapsed = (now - start) / 1000;
                         const prog = Math.min(elapsed / transitionDur, 1);
-                        const ease = prog < 0.5 ? 2 * prog * prog : 1 - Math.pow(-2 * prog + 2, 2) / 2;
+                        const ease = prog < 0.5 ? 2 * prog * prog : 1 - Math.pow(-2 * progress + 2, 2) / 2;
                         const pos = sys.bottom + (next.top - sys.bottom) * ease;
                         scanner.style.top = pos + 'px';
                         updateScroll(pos, limit);
-                        if (elapsed < transitionDur) scrollAnimationFrame = requestAnimationFrame(gStep);
-                        else { scanner.style.opacity = "1"; res(); }
+                        if (elapsed < transitionDur) scrollAnimationFrame = requestAnimationFrame(gStep); else res();
                     }
                     scrollAnimationFrame = requestAnimationFrame(gStep);
                 });
@@ -254,9 +230,8 @@
     }
 
     function stopPerformance() {
-        isRunning = false;
-        cancelAnimationFrame(scrollAnimationFrame);
-        scanner.style.display = 'none';
+        isRunning = false; cancelAnimationFrame(scrollAnimationFrame);
+        scanner.style.display = 'none'; setVisibility('FULL');
         document.getElementById('limit-line').style.display = 'none';
         document.getElementById('start-btn').style.display = 'inline-block';
         document.getElementById('pause-btn').style.display = 'none';
@@ -265,13 +240,11 @@
 
     document.getElementById('start-btn').addEventListener('click', startPerformance);
     document.getElementById('pause-btn').addEventListener('click', () => {
-        isPaused = !isPaused;
-        document.getElementById('pause-btn').innerText = isPaused ? "VERDER" : "PAUZE";
+        isPaused = !isPaused; document.getElementById('pause-btn').innerText = isPaused ? "VERDER" : "PAUZE";
     });
     document.getElementById('stop-btn').addEventListener('click', stopPerformance);
     document.getElementById('undo-btn').addEventListener('click', () => {
-        const last = visualElements.pop();
-        if (last) last.remove();
+        const last = visualElements.pop(); if (last) last.remove();
     });
 </script>
 </body>
