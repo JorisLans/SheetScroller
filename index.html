@@ -3,30 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Maestro - Precision Sheet Scroller</title>
+    <title>The Maestro v55 - Noir Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
-            --gold: #c5a059; --cream: #fdfaf0; --midnight: #1a1a1a; 
-            --panel: #2c2c2c; --accent: #e67e22; --measure-a: rgba(197, 160, 89, 0.2); 
-            --measure-b: rgba(197, 160, 89, 0.1);
+            --ink: #1a1a1a; --paper: #f4f4f4; --white: #ffffff;
+            --measure-a: rgba(0, 0, 0, 0.08); --measure-b: rgba(0, 0, 0, 0.03);
+            --highlight: rgba(0, 0, 0, 0.25);
         }
 
         body { 
-            font-family: 'Georgia', serif; margin: 0; background: var(--midnight); 
-            color: var(--cream); overflow-x: hidden; 
+            font-family: 'Georgia', serif; margin: 0; background: #222; 
+            color: var(--ink); overflow-x: hidden; 
         }
 
-        /* --- UI HEADER --- */
+        /* --- UI HEADER (Zwart-Wit) --- */
         #master-header { 
             position: fixed; top: 0; width: 100%; z-index: 100000;
-            background: var(--panel); border-bottom: 2px solid var(--gold);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            background: var(--white); border-bottom: 3px solid var(--ink);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
 
         .status-bar { 
-            background: var(--gold); color: var(--midnight); 
-            text-align: center; padding: 5px; font-weight: bold; font-size: 13px; text-transform: uppercase;
+            background: var(--ink); color: var(--white); 
+            text-align: center; padding: 6px; font-weight: bold; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
         }
 
         .nav-container { 
@@ -34,73 +34,82 @@
             justify-content: center; flex-wrap: wrap; 
         }
 
-        /* --- Knoppen & Inputs --- */
+        /* --- Klassieke Knoppen --- */
         .btn { 
-            padding: 8px 16px; border: 1px solid var(--gold); border-radius: 4px; 
-            background: transparent; color: var(--gold); cursor: pointer; 
-            font-weight: bold; transition: all 0.3s; font-family: 'Georgia', serif;
+            padding: 8px 16px; border: 2px solid var(--ink); border-radius: 0px; 
+            background: var(--white); color: var(--ink); cursor: pointer; 
+            font-weight: bold; transition: all 0.2s; font-family: 'Georgia', serif;
+            text-transform: uppercase; font-size: 11px;
         }
-        .btn:hover { background: var(--gold); color: var(--midnight); }
-        .btn-primary { background: var(--gold); color: var(--midnight); }
-        .btn-danger { color: #e74c3c; border-color: #e74c3c; }
-
+        .btn:hover { background: var(--ink); color: var(--white); }
+        .btn-primary { background: var(--ink); color: var(--white); }
+        
         input, select { 
-            background: #3d3d3d; border: 1px solid #555; color: white; 
-            padding: 6px; border-radius: 4px; outline: none;
+            background: var(--white); border: 2px solid var(--ink); color: var(--ink); 
+            padding: 6px; border-radius: 0px; font-family: 'Georgia', serif;
         }
 
         /* --- PDF AREA --- */
         #viewer-container { 
             position: relative; width: 100%; padding-top: 170px; 
             display: flex; flex-direction: column; align-items: center;
-            background: var(--cream); /* Klassieke papier-look onder de PDF */
+            background: var(--paper); min-height: 100vh;
         }
-        canvas { box-shadow: 0 0 30px rgba(0,0,0,0.3); margin-bottom: 20px; max-width: 95%; }
+        canvas { box-shadow: 0 0 20px rgba(0,0,0,0.2); margin-bottom: 25px; max-width: 95%; }
 
-        /* --- MARKERS --- */
+        /* --- MARKERS (Duidelijker & Dikker) --- */
         #scanning-line { 
-            position: absolute; left: 0; width: 100%; height: 4px; 
-            background: #d35400; box-shadow: 0 0 10px #d35400; 
+            position: absolute; left: 0; width: 100%; height: 6px; 
+            background: #000; box-shadow: 0 0 10px rgba(0,0,0,0.5); 
             z-index: 99999; display: none; pointer-events: none;
         }
         #beat-bubble {
             position: absolute; left: 50%; bottom: -35px; transform: translateX(-50%);
-            background: #d35400; color: white; padding: 3px 12px; border-radius: 15px;
-            font-size: 12px; font-weight: bold; font-family: sans-serif;
+            background: #000; color: #fff; padding: 4px 14px; border-radius: 0px;
+            font-size: 13px; font-weight: bold; border: 1px solid #fff;
         }
 
-        .system-box { position: absolute; left: 0; width: 100%; border: 1px solid var(--gold); pointer-events: none; z-index: 10; opacity: 0.5; }
-        .measure-block { position: absolute; pointer-events: none; border-right: 1px solid rgba(0,0,0,0.1); z-index: 5; }
-        .measure-block.active { background: rgba(197, 160, 89, 0.4) !important; box-shadow: inset 0 0 10px rgba(0,0,0,0.1); }
+        /* Dikkere regellijnen */
+        .system-box { 
+            position: absolute; left: 0; width: 100%; 
+            border: 4px solid var(--ink); /* Veel dikker nu */
+            pointer-events: none; z-index: 10; opacity: 0.6; 
+        }
+
+        .measure-block { position: absolute; pointer-events: none; border-right: 1px solid rgba(0,0,0,0.2); z-index: 5; }
+        
+        /* Zebra patronen via JS toegevoegd, hier de actieve staat: */
+        .measure-block.active { background: var(--highlight) !important; box-shadow: inset 0 0 15px rgba(0,0,0,0.1); }
         
         .label-tag { 
-            position: absolute; right: 15px; background: var(--panel); color: var(--gold); 
-            border: 1px solid var(--gold); padding: 5px 10px; border-radius: 3px;
-            font-size: 11px; z-index: 20; transform: translateY(-50%); text-align: right;
+            position: absolute; right: 15px; background: var(--white); color: var(--ink); 
+            border: 2px solid var(--ink); padding: 5px 12px; font-weight: bold;
+            font-size: 12px; z-index: 20; transform: translateY(-50%); text-align: right;
         }
 
         /* --- MODES --- */
         body.play-clean #scanning-line, body.play-clean .system-box, 
         body.play-clean .label-tag, body.play-clean .measure-block { opacity: 0 !important; }
 
-        body.play-guide .system-box, body.play-guide .label-tag { opacity: 0.1; }
-        body.play-guide .measure-block { opacity: 0; }
-        body.play-guide .measure-block.active { opacity: 1 !important; }
+        body.play-guide .system-box { opacity: 0.2; }
+        body.play-guide .label-tag { opacity: 0.2; }
+        body.play-guide .measure-block { opacity: 1; border-right-color: rgba(0,0,0,0.05); } 
+        /* In guide mode zie je het zebra patroon licht op de achtergrond */
 
         #performance-overlay { 
             position: fixed; bottom: 30px; right: 30px; z-index: 110000; 
-            display: none; gap: 15px; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 10px;
+            display: none; gap: 15px; background: var(--white); padding: 15px; border: 3px solid var(--ink);
         }
     </style>
 </head>
 <body id="main-body">
 
 <header id="master-header">
-    <div class="status-bar" id="step-info">Laad een partituur om te beginnen</div>
+    <div class="status-bar" id="step-info">Systeem Klaar - Upload PDF</div>
     <div class="nav-container">
         <input type="file" id="upload-pdf" accept="application/pdf">
         
-        <div>BPM <input type="number" id="bpm-input" value="120" style="width:50px;"></div>
+        <div>BPM <input type="number" id="bpm-input" value="120" style="width:55px;"></div>
         
         <select id="ts-input">
             <option value="4">4/4 Maat</option>
@@ -114,8 +123,8 @@
             <option value="clean">Modus: Schoon</option>
         </select>
 
-        <div style="font-size: 11px;">
-            Glide <input type="range" id="glide-input" min="0" max="40" value="15">
+        <div style="font-size: 11px; text-align: center;">
+            Glide<br><input type="range" id="glide-input" min="0" max="40" value="15" style="width: 70px;">
         </div>
 
         <label title="Metronoom">🔊 <input type="checkbox" id="metronome-on" checked></label>
@@ -128,7 +137,7 @@
 
 <div id="performance-overlay">
     <button id="pause-btn" class="btn">PAUZE</button>
-    <button id="stop-btn" class="btn btn-danger">STOP</button>
+    <button id="stop-btn" class="btn btn-primary">STOP</button>
 </div>
 
 <div id="viewer-container">
@@ -137,18 +146,12 @@
 
 <script>
     /**
-     * THE MAESTRO - CORE ENGINE
+     * THE MAESTRO v55 - CORE ENGINE
      */
     const Engine = {
-        pdf: null,
-        systems: [],
-        currentSystem: null,
-        state: 'IDLE',
-        isRunning: false,
-        isPaused: false,
-        audioCtx: null,
-        visualHistory: [],
-        lastBeat: -1,
+        pdf: null, systems: [], currentSystem: null,
+        state: 'IDLE', isRunning: false, isPaused: false,
+        audioCtx: null, visualHistory: [], lastBeat: -1,
 
         init() {
             this.bindEvents();
@@ -168,7 +171,7 @@
         async loadPDF(e) {
             const file = e.target.files[0];
             if (!file) return;
-            this.updateStatus("Bezig met laden...");
+            this.updateStatus("Bezig met renderen...");
             const buffer = await file.arrayBuffer();
             this.pdf = await pdfjsLib.getDocument(buffer).promise;
             
@@ -202,7 +205,7 @@
                 this.currentSystem.bottom = yPct;
                 this.createSystemUI(yPct);
                 this.state = 'MEASURES';
-                this.updateStatus("Markeer de maatstrepen en klik 'Bevestig'");
+                this.updateStatus("Markeer de maten - Eindig met 'Bevestig'");
                 document.getElementById('confirm-btn').style.display = 'inline-block';
             } else if (this.state === 'MEASURES') {
                 this.addMeasure(xPct);
@@ -238,7 +241,9 @@
             block.style.height = (this.currentSystem.bottom - this.currentSystem.top) + '%';
             block.style.left = lastX + '%';
             block.style.width = (x - lastX) + '%';
-            block.style.background = this.currentSystem.measures.length % 2 === 0 ? 'var(--measure-b)' : 'var(--measure-a)';
+            
+            // Zebra patroon:
+            block.style.background = (this.currentSystem.measures.length % 2 === 0) ? 'var(--measure-b)' : 'var(--measure-a)';
             
             document.getElementById('viewer-container').appendChild(block);
             this.currentSystem.blocks.push(block);
@@ -247,7 +252,6 @@
         },
 
         confirmSystem() {
-            // Voeg laatste maat toe (naar 100%)
             const lastX = this.currentSystem.measures.length > 0 ? this.currentSystem.measures[this.currentSystem.measures.length - 1] : 0;
             const finalBlock = document.createElement('div');
             finalBlock.className = 'measure-block';
@@ -261,10 +265,8 @@
             this.currentSystem.blocks.push(finalBlock);
             
             this.systems.push(this.currentSystem);
-            this.currentSystem = null;
-            this.visualHistory = [];
-            this.state = 'TOP';
-            this.updateStatus("Regel bevestigd. Volgende regel of start?");
+            this.currentSystem = null; this.visualHistory = []; this.state = 'TOP';
+            this.updateStatus("Regel opgeslagen. Volgende of Start?");
             document.getElementById('confirm-btn').style.display = 'none';
         },
 
@@ -277,8 +279,7 @@
                 this.currentSystem.blocks.pop();
             } else {
                 item.labelEl.remove();
-                this.currentSystem = null;
-                this.state = 'TOP';
+                this.currentSystem = null; this.state = 'TOP';
                 document.getElementById('confirm-btn').style.display = 'none';
             }
             this.refreshLabel();
@@ -298,8 +299,7 @@
 
         async start() {
             if (!this.systems.length) return;
-            this.isRunning = true;
-            this.isPaused = false;
+            this.isRunning = true; this.isPaused = false;
             
             const mode = document.getElementById('play-mode').value;
             document.getElementById('main-body').className = (mode === 'clean' ? 'play-clean' : 'play-guide');
@@ -329,43 +329,33 @@
 
                 const tick = (now) => {
                     if (!this.isRunning) return resolve();
-                    if (this.isPaused) { 
-                        startTime += (performance.now() - now); 
-                        scrollAnimationFrame = requestAnimationFrame(tick); 
-                        return; 
-                    }
+                    if (this.isPaused) { startTime += (performance.now() - now); requestAnimationFrame(tick); return; }
 
                     const elapsed = (now - startTime) / 1000;
-                    
-                    // Audio & Beat Bubble
                     const progress = Math.min(elapsed / totalDur, 0.999);
                     const totalBeats = numM * ts;
                     const curBeat = Math.floor(progress * totalBeats);
+
                     if (curBeat !== this.lastBeat) {
                         this.click(curBeat % ts === 0);
                         this.lastBeat = curBeat;
                         document.getElementById('beat-bubble').innerText = `M ${Math.floor(curBeat/ts)+1} | B ${(curBeat%ts)+1}`;
                     }
 
-                    // Highlight
                     sys.blocks.forEach((b, k) => b.classList.toggle('active', k === Math.floor(curBeat/ts)));
 
-                    // Y-Positie & Scroll
                     let y;
                     if (elapsed <= scanDur) {
                         y = sys.top + (elapsed * ((sys.bottom - sys.top) / scanDur));
                     } else if (idx < this.systems.length - 1) {
-                        const p = (elapsed - scanDur) / transDur;
-                        y = sys.bottom + (this.systems[idx+1].top - sys.bottom) * p;
+                        y = sys.bottom + (this.systems[idx+1].top - sys.bottom) * ((elapsed - scanDur) / transDur);
                     } else { y = sys.bottom; }
 
                     const line = document.getElementById('scanning-line');
                     line.style.top = y + '%';
                     
                     const rect = line.getBoundingClientRect();
-                    if (rect.top > window.innerHeight * 0.5) {
-                        window.scrollBy(0, rect.top - window.innerHeight * 0.5);
-                    }
+                    if (rect.top > window.innerHeight * 0.45) window.scrollBy(0, rect.top - window.innerHeight * 0.45);
 
                     if (elapsed < totalDur) requestAnimationFrame(tick);
                     else resolve();
@@ -398,7 +388,7 @@
             document.getElementById('performance-overlay').style.display = 'none';
             document.getElementById('scanning-line').style.display = 'none';
             this.systems.forEach(s => s.blocks.forEach(b => b.classList.remove('active')));
-            window.scrollTo(0, 0);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     };
 
