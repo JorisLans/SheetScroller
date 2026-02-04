@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v7</title>
+    <title>Precision Sheet Scroller v8</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -11,28 +11,25 @@
             --measure-a: rgba(46, 204, 113, 0.4); --measure-b: rgba(52, 152, 219, 0.2);
             --danger: #e74c3c; --success: #27ae60;
         }
-        body { font-family: sans-serif; margin: 0; background: var(--bg); color: white; touch-action: manipulation; }
+        body { font-family: sans-serif; margin: 0; background: var(--bg); color: white; touch-action: manipulation; overflow-x: hidden; }
         
         #ui-layer { position: fixed; top: 0; width: 100%; background: var(--panel); padding: 15px; z-index: 1000; border-bottom: 2px solid var(--primary); display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
         .status-msg { background: var(--primary); padding: 8px 15px; border-radius: 10px; font-size: 14px; font-weight: bold; flex-basis: 100%; text-align: center; margin-bottom: 5px; }
         
-        #pdf-render-area { position: relative; margin-top: 200px; display: flex; flex-direction: column; align-items: center; }
+        #pdf-render-area { position: relative; margin-top: 200px; display: flex; flex-direction: column; align-items: center; width: 100%; }
         canvas { background: white; margin-bottom: 20px; box-shadow: 0 0 30px rgba(0,0,0,0.5); max-width: 98vw; }
         
         .system-box { position: absolute; left: 0; width: 100%; border: 3px solid var(--accent); pointer-events: none; z-index: 10; box-sizing: border-box; }
         .measure-block { position: absolute; height: 100%; pointer-events: none; border-right: 2px solid white; z-index: 5; box-sizing: border-box; }
-        
-        /* Verbeterde teller badge */
-        .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 6px 12px; border-radius: 8px; font-weight: bold; font-size: 14px; z-index: 20; transform: translateY(-50%); box-shadow: 0 4px 6px rgba(0,0,0,0.3); line-height: 1.2; text-align: center; }
+        .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 6px 12px; border-radius: 8px; font-weight: bold; font-size: 14px; z-index: 20; transform: translateY(-50%); box-shadow: 0 4px 6px rgba(0,0,0,0.3); text-align: center; }
 
-        .btn { padding: 12px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; min-width: 100px; }
+        .btn { padding: 12px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; min-width: 90px; }
         .btn-start { background: var(--success); color: white; }
         .btn-pause { background: #e67e22; color: white; display: none; }
         .btn-stop { background: var(--danger); color: white; display: none; }
         .btn-next { background: var(--accent); color: #000; display: none; }
         .btn-undo { background: #95a5a6; color: white; }
         
-        .control-group { display: flex; align-items: center; gap: 5px; }
         input, select { padding: 10px; border-radius: 6px; border: none; font-size: 14px; background: #334155; color: white; }
     </style>
 </head>
@@ -40,10 +37,15 @@
 
 <div id="ui-layer">
     <div class="status-msg" id="workflow-step">1. Upload PDF</div>
-    <input type="file" id="upload" style="width: 180px;">
+    <input type="file" id="upload" style="width: 160px;">
     
-    <div class="control-group">BPM: <input type="number" id="bpm" value="120" style="width:55px;"></div>
-    <div class="control-group">Maat: <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select></div>
+    <div>BPM: <input type="number" id="bpm" value="120" style="width:55px;"></div>
+    <div>Maat: <select id="time-sig">
+        <option value="4">4/4</option>
+        <option value="3">3/4</option>
+        <option value="2">2/4</option>
+        <option value="6">6/8</option>
+    </select></div>
 
     <button id="undo-btn" class="btn btn-undo">UNDO</button>
     <button id="next-system-btn" class="btn btn-next">BEVESTIG REGEL</button>
@@ -68,6 +70,7 @@
     let isRunning = false;
     let currentSystemIndex = 0;
     let scrollAnimationFrame;
+    let currentScrollY = 0;
 
     const stepEl = document.getElementById('workflow-step');
     const nextBtn = document.getElementById('next-system-btn');
@@ -75,7 +78,6 @@
     const pauseBtn = document.getElementById('pause-btn');
     const stopBtn = document.getElementById('stop-btn');
     const container = document.getElementById('pdf-render-area');
-    const timeSigEl = document.getElementById('time-sig');
 
     document.getElementById('upload').addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -94,14 +96,6 @@
         state = 'TOP';
         stepEl.innerText = "2. Tik op de BOVENKANT van de regel";
     });
-
-    function updateCounterLabel() {
-        if (!currentSystem || !currentSystem.counterEl) return;
-        const beatsPerMeasure = parseInt(timeSigEl.value);
-        const measureCount = currentSystem.measures.length + 1;
-        const totalBeats = measureCount * beatsPerMeasure;
-        currentSystem.counterEl.innerHTML = `Maten: ${measureCount}<br><small>Beats: ${totalBeats}</small>`;
-    }
 
     container.addEventListener('mousedown', (e) => {
         if (state === 'IDLE' || isRunning) return;
@@ -128,7 +122,7 @@
             container.appendChild(box);
             container.appendChild(counter);
             currentSystem.counterEl = counter;
-            updateCounterLabel();
+            updateCounter();
             visualElements.push(box, counter);
             
             state = 'MEASURES';
@@ -138,7 +132,6 @@
         else if (state === 'MEASURES') {
             const lastX = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
             currentSystem.measures.push(x);
-            
             const block = document.createElement('div');
             block.className = 'measure-block';
             block.style.top = currentSystem.top + 'px';
@@ -146,12 +139,17 @@
             block.style.left = lastX + 'px';
             block.style.width = (x - lastX) + 'px';
             block.style.background = currentSystem.measures.length % 2 === 0 ? 'var(--measure-b)' : 'var(--measure-a)';
-            
             container.appendChild(block);
             visualElements.push(block);
-            updateCounterLabel();
+            updateCounter();
         }
     });
+
+    function updateCounter() {
+        const beats = parseInt(document.getElementById('time-sig').value);
+        const m = currentSystem.measures.length + 1;
+        currentSystem.counterEl.innerHTML = `Maten: ${m}<br><small>Beats: ${m * beats}</small>`;
+    }
 
     document.getElementById('undo-btn').addEventListener('click', () => {
         if (state === 'BOTTOM') { state = 'TOP'; currentSystem = null; stepEl.innerText = "Tik opnieuw op de BOVENKANT."; }
@@ -161,12 +159,10 @@
                 lastEl.remove();
                 if (lastEl.className === 'system-box') { 
                     visualElements.pop().remove(); 
-                    state = 'BOTTOM'; 
-                    nextBtn.style.display = 'none'; 
-                }
-                else { 
+                    state = 'BOTTOM'; nextBtn.style.display = 'none'; 
+                } else { 
                     currentSystem.measures.pop(); 
-                    updateCounterLabel();
+                    updateCounter();
                 }
             }
         }
@@ -186,10 +182,10 @@
         systems.push(currentSystem);
         currentSystem = null; visualElements = []; state = 'TOP';
         nextBtn.style.display = 'none';
-        stepEl.innerText = "Regel klaar! Tik op de volgende.";
+        stepEl.innerText = "Regel opgeslagen! Tik op de volgende.";
     });
 
-    // PERFORMANCE LOGIC
+    // VERBETERDE SCROLL LOGICA
     async function startPerformance() {
         if(systems.length === 0) return;
         isRunning = true; isPaused = false;
@@ -197,37 +193,60 @@
         pauseBtn.style.display = 'inline-block';
         stopBtn.style.display = 'inline-block';
         
-        const bpm = document.getElementById('bpm').value;
-        const beats = timeSigEl.value;
+        const bpm = parseInt(document.getElementById('bpm').value);
+        const beatsPerMeasure = parseInt(document.getElementById('time-sig').value);
         
-        window.scrollTo({top: systems[0].top - 150, behavior: 'smooth'});
+        // Ga naar startpositie
+        currentScrollY = systems[0].top - 100;
+        window.scrollTo({top: currentScrollY, behavior: 'smooth'});
         await new Promise(r => setTimeout(r, 1000));
 
         for (let i = currentSystemIndex; i < systems.length; i++) {
             if (!isRunning) break;
             currentSystemIndex = i;
             const sys = systems[i];
-            const totalSeconds = ((sys.measures.length + 1) * beats) / bpm * 60;
-            const speed = (sys.bottom - sys.top) / totalSeconds;
-            await scrollDistance(sys.bottom - sys.top, speed);
+            
+            // Bereken de totale tijd voor deze regel op basis van BPM
+            const totalMeasures = sys.measures.length + 1;
+            const totalBeats = totalMeasures * beatsPerMeasure;
+            const totalSeconds = (totalBeats / bpm) * 60;
+            
+            // De afstand die we moeten overbruggen is de hoogte van de regel
+            const distance = sys.bottom - sys.top;
+            const scrollSpeed = distance / totalSeconds; // Pixels per seconde
+
+            await smoothScroll(distance, scrollSpeed);
         }
         if (isRunning) stopPerformance();
     }
 
-    function scrollDistance(target, speed) {
+    function smoothScroll(targetDistance, speed) {
         return new Promise(resolve => {
             let traveled = 0;
             let lastTime = performance.now();
+
             function step(now) {
                 if (!isRunning) return resolve();
-                if (isPaused) { lastTime = now; scrollAnimationFrame = requestAnimationFrame(step); return; }
-                const deltaTime = (now - lastTime) / 1000;
+                if (isPaused) {
+                    lastTime = now;
+                    scrollAnimationFrame = requestAnimationFrame(step);
+                    return;
+                }
+
+                const deltaTime = (now - lastTime) / 1000; // in seconden
                 lastTime = now;
-                const toScroll = speed * deltaTime;
-                window.scrollBy(0, toScroll);
-                traveled += toScroll;
-                if (traveled < target) scrollAnimationFrame = requestAnimationFrame(step);
-                else resolve();
+
+                const pixelsToMove = speed * deltaTime;
+                currentScrollY += pixelsToMove;
+                traveled += pixelsToMove;
+
+                window.scrollTo(0, currentScrollY);
+
+                if (traveled < targetDistance) {
+                    scrollAnimationFrame = requestAnimationFrame(step);
+                } else {
+                    resolve();
+                }
             }
             scrollAnimationFrame = requestAnimationFrame(step);
         });
@@ -238,9 +257,8 @@
         cancelAnimationFrame(scrollAnimationFrame);
         startBtn.style.display = 'inline-block';
         pauseBtn.style.display = 'none';
-        pauseBtn.innerText = "PAUZE";
         stopBtn.style.display = 'none';
-        window.scrollTo({top: 0, behavior: 'smooth'});
+        stepEl.innerText = "Gestopt.";
     }
 
     startBtn.addEventListener('click', startPerformance);
