@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v36 - Metronome Toggle</title>
+    <title>Precision Sheet Scroller v37 - Measure Setup Fix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
             --primary: #3498db; --bg: #0f172a; --panel: #1e293b; --accent: #f1c40f; 
-            --measure-a: rgba(46, 204, 113, 0.3); --measure-b: rgba(52, 152, 219, 0.2);
+            --measure-a: rgba(46, 204, 113, 0.25); /* Transparanter */
+            --measure-b: rgba(52, 152, 219, 0.15); /* Transparanter */
             --danger: #ef4444; --success: #22c55e; --warning: #f59e0b;
         }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: white; overflow-x: hidden; }
@@ -47,19 +48,19 @@
         .btn-start { background: var(--success); color: white; }
         .btn-pause { background: var(--warning); color: white; }
         .btn-stop { background: var(--danger); color: white; }
-        .btn-confirm { background: var(--accent); color: #000; border: 2px solid white; }
+        .btn-confirm { background: var(--accent); color: #000; border: 2px solid white; font-weight: 800; }
         
         input, select { padding: 8px; border-radius: 6px; background: #334155; color: white; border: 1px solid #475569; }
         
         .toggle-container { background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px; display: flex; align-items: center; gap: 8px; border: 1px solid #475569; }
-        .toggle-container label { font-size: 11px; font-weight: bold; cursor: pointer; }
 
+        /* Setup visuals */
         .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--accent); pointer-events: none; z-index: 10; opacity: 0.4; }
-        .measure-block { position: absolute; pointer-events: none; border-right: 1px solid white; z-index: 5; opacity: 0.8; }
-        .measure-block.active { background: rgba(255, 255, 255, 0.4) !important; border: 2px solid #fff; box-shadow: inset 0 0 15px white; opacity: 1; }
-        .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 4px 8px; border-radius: 4px; font-weight: 900; font-size: 11px; z-index: 20; transform: translateY(-50%); }
+        .measure-block { position: absolute; pointer-events: none; border-right: 2px solid rgba(255,255,255,0.5); z-index: 5; }
+        .measure-block.active { background: rgba(255, 255, 255, 0.4) !important; border: 2px solid #fff; box-shadow: inset 0 0 15px white; opacity: 1; z-index: 100; }
+        .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 4px 10px; border-radius: 4px; font-weight: 900; font-size: 14px; z-index: 2000; transform: translateY(-50%); box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
     </style>
-</head>
+ head>
 <body>
 
 <div id="scanning-line"><div id="beat-indicator" style="display:none;"></div></div>
@@ -74,12 +75,12 @@
         
         <div class="toggle-container">
             <input type="checkbox" id="metro-switch" checked>
-            <label for="metro-switch">🔊 METRONOOM</label>
+            <label for="metro-switch" style="font-size:11px; cursor:pointer;">🔊 METRO</label>
         </div>
 
         <div style="font-size: 11px;">Transitie <input type="range" id="glide-percent" min="0" max="40" value="15" style="width:60px;"></div>
-        <button id="undo-btn" class="btn btn-undo">Undo</button>
-        <button id="next-system-btn" class="btn btn-confirm" style="display:none;">BEVESTIG REGEL</button>
+        <button id="undo-btn" class="btn">Undo</button>
+        <button id="next-system-btn" class="btn btn-confirm" style="display:none;">BEVESTIG REGEL (<span id="live-m-count">1</span> maten)</button>
         <button id="start-btn" class="btn btn-start">START</button>
     </div>
 </div>
@@ -103,27 +104,24 @@
     let scrollAnimationFrame;
     let lastBeatLogged = -1;
     let audioCtx = null;
+    let visualElements = [];
 
     const scanner = document.getElementById('scanning-line');
     const beatDisplay = document.getElementById('beat-indicator');
     const container = document.getElementById('pdf-render-area');
     const metroSwitch = document.getElementById('metro-switch');
+    const liveMCountDisp = document.getElementById('live-m-count');
 
     function playClick(isFirstBeat) {
         if (!metroSwitch.checked) return;
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        
+        osc.connect(gain); gain.connect(audioCtx.destination);
         osc.frequency.value = isFirstBeat ? 1000 : 500;
         gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.08);
-        
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.08);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.08);
     }
 
     document.getElementById('upload').addEventListener('change', async (e) => {
@@ -140,7 +138,7 @@
             await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
             container.appendChild(canvas);
         }
-        state = 'TOP'; document.getElementById('workflow-step').innerText = "STAP 1: Markeer de regels";
+        state = 'TOP'; document.getElementById('workflow-step').innerText = "STAP 1: Klik BOVENKANT notenbalk";
     });
 
     container.addEventListener('mousedown', (e) => {
@@ -152,41 +150,62 @@
         if (state === 'TOP') { 
             currentSystem = { top: y, bottom: 0, measures: [], visualBlocks: [], maxWidth: 0 }; 
             state = 'BOTTOM'; 
+            document.getElementById('workflow-step').innerText = "STAP 2: Klik ONDERKANT notenbalk";
         }
         else if (state === 'BOTTOM') {
             currentSystem.bottom = y;
             currentSystem.maxWidth = container.clientWidth;
             const box = document.createElement('div'); box.className = 'system-box';
             box.style.top = currentSystem.top + 'px'; box.style.height = (y - currentSystem.top) + 'px';
+            
             const counter = document.createElement('div'); counter.className = 'measure-counter';
             counter.style.top = (currentSystem.top + (y - currentSystem.top)/2) + 'px';
+            counter.innerText = "M: 1"; // Startwaarde
+            
             container.appendChild(box); container.appendChild(counter);
             currentSystem.boxEl = box; currentSystem.counterEl = counter;
+            visualElements.push(box, counter);
+            
             state = 'MEASURES';
             document.getElementById('next-system-btn').style.display = 'inline-block';
+            liveMCountDisp.innerText = "1";
+            document.getElementById('workflow-step').innerText = "STAP 3: Klik op MAATSTREPEN (of Bevestig)";
         } else if (state === 'MEASURES') {
             const lastX = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
             currentSystem.measures.push(x);
+            
             const block = document.createElement('div'); block.className = 'measure-block';
             block.style.top = currentSystem.top + 'px'; block.style.height = (currentSystem.bottom - currentSystem.top) + 'px';
             block.style.left = lastX + 'px'; block.style.width = (x - lastX) + 'px';
             block.style.background = currentSystem.measures.length % 2 === 0 ? 'var(--measure-b)' : 'var(--measure-a)';
+            
             container.appendChild(block);
             currentSystem.visualBlocks.push(block);
+            visualElements.push(block);
+            
+            // Update teller (+1 omdat de huidige klik een maat afsluit en de volgende start)
+            const count = currentSystem.measures.length + 1;
+            currentSystem.counterEl.innerText = `M: ${count}`;
+            liveMCountDisp.innerText = count;
         }
     });
 
     document.getElementById('next-system-btn').addEventListener('click', () => {
+        // Laatste maat toevoegen
         const lastX = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
         const block = document.createElement('div'); block.className = 'measure-block';
         block.style.top = currentSystem.top + 'px'; block.style.height = (currentSystem.bottom - currentSystem.top) + 'px';
         block.style.left = lastX + 'px'; block.style.width = (currentSystem.maxWidth - lastX) + 'px';
         block.style.background = (currentSystem.measures.length + 1) % 2 === 0 ? 'var(--measure-b)' : 'var(--measure-a)';
+        
         container.appendChild(block);
         currentSystem.visualBlocks.push(block);
+        visualElements.push(block);
+        
         systems.push(currentSystem);
         currentSystem = null; state = 'TOP';
         document.getElementById('next-system-btn').style.display = 'none';
+        document.getElementById('workflow-step').innerText = "Regel opgeslagen! Klik volgende regel.";
     });
 
     function updateBeatGlobal(elapsedInSys, totalSysDur, numM, beatsPerM, sysIdx) {
@@ -243,7 +262,6 @@
                     if (!isRunning) return res();
                     if (isPaused) { sysStartTime += (performance.now() - now); scrollAnimationFrame = requestAnimationFrame(step); return; }
                     const elapsed = (now - sysStartTime) / 1000;
-                    
                     updateBeatGlobal(elapsed, totalDur, numM, beats, i);
 
                     if (elapsed <= scanDur) {
@@ -259,7 +277,6 @@
 
                     const limit = window.innerHeight * 0.33;
                     if (scanner.getBoundingClientRect().top > limit) window.scrollBy(0, scanner.getBoundingClientRect().top - limit);
-                    
                     if (elapsed < totalDur) scrollAnimationFrame = requestAnimationFrame(step); else res();
                 }
                 scrollAnimationFrame = requestAnimationFrame(step);
@@ -278,7 +295,19 @@
     }
 
     document.getElementById('undo-btn').addEventListener('click', () => {
-        if (visualElements.length) visualElements.pop()?.remove();
+        if (!visualElements.length) return;
+        const last = visualElements.pop();
+        if (last) {
+            last.remove();
+            // Als we een maatblok verwijderden, update teller
+            if (currentSystem && currentSystem.visualBlocks.length) {
+                currentSystem.visualBlocks.pop();
+                currentSystem.measures.pop();
+                const count = currentSystem.measures.length + 1;
+                currentSystem.counterEl.innerText = `M: ${count}`;
+                liveMCountDisp.innerText = count;
+            }
+        }
     });
 
     document.getElementById('start-btn').addEventListener('click', startPerformance);
