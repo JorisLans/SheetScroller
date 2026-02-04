@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v18 - Sync Scroll</title>
+    <title>Precision Sheet Scroller v19</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -16,24 +16,34 @@
         #ui-layer { position: fixed; top: 0; width: 100%; background: var(--panel); padding: 15px; z-index: 2000; border-bottom: 2px solid var(--primary); display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
         .status-msg { background: var(--primary); padding: 8px 15px; border-radius: 10px; font-size: 14px; font-weight: bold; flex-basis: 100%; text-align: center; margin-bottom: 5px; }
         
-        #pdf-render-area { position: relative; margin-top: 250px; display: flex; flex-direction: column; align-items: center; width: 100%; min-height: 100vh; }
+        #pdf-render-area { position: relative; margin-top: 250px; display: flex; flex-direction: column; align-items: center; width: 100%; min-height: 100vh; z-index: 1; }
         canvas { background: white; margin-bottom: 20px; box-shadow: 0 0 30px rgba(0,0,0,0.5); max-width: 98vw; }
         
-        .system-box { position: absolute; left: 0; width: 100%; border: 3px solid var(--accent); pointer-events: none; z-index: 10; box-sizing: border-box; }
-        .measure-block { position: absolute; height: 100%; pointer-events: none; border-right: 2px solid white; z-index: 5; box-sizing: border-box; }
-        .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 6px 12px; border-radius: 8px; font-weight: bold; font-size: 14px; z-index: 20; transform: translateY(-50%); text-align: center; }
+        /* DE RODE LIJN - Extreem hoge z-index en felle kleur */
+        #scanning-line { 
+            position: absolute; 
+            left: 0; 
+            width: 100%; 
+            height: 6px; 
+            background: #ff0000 !important; 
+            box-shadow: 0 0 20px #ff0000; 
+            z-index: 9999 !important; 
+            display: none; 
+            pointer-events: none; 
+        }
 
-        #scanning-line { position: absolute; left: 0; width: 100%; height: 5px; background: #ff0000; box-shadow: 0 0 15px #ff0000; z-index: 1500; display: none; pointer-events: none; }
-        #limit-line { position: fixed; top: 33.33%; left: 0; width: 100%; height: 1px; border-top: 2px dashed rgba(255,255,255,0.3); z-index: 1000; pointer-events: none; display: none; }
+        #limit-line { position: fixed; top: 33.33%; left: 0; width: 100%; height: 1px; border-top: 2px dashed rgba(255,255,255,0.5); z-index: 1000; pointer-events: none; display: none; }
+        .system-box { position: absolute; left: 0; width: 100%; border: 3px solid var(--accent); pointer-events: none; z-index: 10; }
+        .measure-block { position: absolute; height: 100%; pointer-events: none; border-right: 2px solid white; z-index: 5; }
+        .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 6px 12px; border-radius: 8px; font-weight: bold; z-index: 20; transform: translateY(-50%); }
 
-        .btn { padding: 12px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; min-width: 90px; }
+        .btn { padding: 12px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; }
         .btn-start { background: var(--success); color: white; }
         .btn-pause { background: #e67e22; color: white; display: none; }
         .btn-stop { background: var(--danger); color: white; display: none; }
-        .btn-next { background: var(--accent); color: #000; display: none; }
         .btn-undo { background: #95a5a6; color: white; }
         
-        input, select { padding: 10px; border-radius: 6px; border: none; font-size: 14px; background: #334155; color: white; }
+        input, select { padding: 10px; border-radius: 6px; background: #334155; color: white; border: none; }
         .slider-container { display: flex; align-items: center; gap: 8px; font-size: 13px; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 8px; }
     </style>
 </head>
@@ -44,21 +54,21 @@
     <input type="file" id="upload" style="width: 160px;">
     <div>BPM: <input type="number" id="bpm" value="120" style="width:55px;"></div>
     <div>Maat: <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select></div>
-    
     <div class="slider-container">
         Transitie: <input type="range" id="glide-percent" min="0" max="25" value="10" style="width:80px;">
         <span id="glide-val">10%</span>
     </div>
-
     <button id="undo-btn" class="btn btn-undo">UNDO</button>
-    <button id="next-system-btn" class="btn btn-next">BEVESTIG</button>
+    <button id="next-system-btn" class="btn btn-next" style="display:none; background: var(--accent);">BEVESTIG</button>
     <button id="start-btn" class="btn btn-start">START</button>
     <button id="pause-btn" class="btn btn-pause">PAUZE</button>
     <button id="stop-btn" class="btn btn-stop">STOP</button>
 </div>
 
 <div id="limit-line"></div>
-<div id="pdf-render-area"><div id="scanning-line"></div></div>
+<div id="pdf-render-area">
+    <div id="scanning-line"></div>
+</div>
 
 <script>
     const pdfjsLib = window['pdfjs-dist/build/pdf'];
@@ -70,7 +80,6 @@
     let visualElements = []; 
     let isPaused = false;
     let isRunning = false;
-    let currentSystemIndex = 0;
     let scrollAnimationFrame;
     let currentScrollY = 0;
 
@@ -79,18 +88,19 @@
     const glideSlider = document.getElementById('glide-percent');
     const glideLabel = document.getElementById('glide-val');
 
-    glideSlider.addEventListener('input', () => {
-        glideLabel.innerText = glideSlider.value + '%';
-    });
+    glideSlider.addEventListener('input', () => glideLabel.innerText = glideSlider.value + '%');
 
     document.getElementById('upload').addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if(!file) return;
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-        const scannerBackup = scanner.cloneNode(true);
+        
+        // Zorg dat de scanner behouden blijft bij leegmaken
+        const scannerEl = document.getElementById('scanning-line');
         container.innerHTML = '';
-        container.appendChild(scannerBackup);
+        container.appendChild(scannerEl);
+        
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const viewport = page.getViewport({ scale: 1.5 });
@@ -100,15 +110,15 @@
             container.appendChild(canvas);
         }
         state = 'TOP';
-        document.getElementById('workflow-step').innerText = "2. Tik op BOVENKANT";
+        document.getElementById('workflow-step').innerText = "2. Tik op BOVENKANT van regel";
     });
 
-    // Markering logica (ingekort voor overzicht)
     container.addEventListener('mousedown', (e) => {
         if (state === 'IDLE' || isRunning) return;
         const rect = container.getBoundingClientRect();
         const y = (e.pageY) - (rect.top + window.scrollY);
         const x = (e.pageX) - rect.left;
+
         if (state === 'TOP') {
             currentSystem = { top: y, bottom: 0, measures: [] };
             state = 'BOTTOM';
@@ -164,12 +174,11 @@
         document.getElementById('next-system-btn').style.display = 'none';
     });
 
-    // Centrale functie voor scroll-correctie
-    function updateScrollPosition(lineY, comfortLimit) {
+    function updateScroll(lineY, limit) {
         const lineOnScreen = lineY - currentScrollY;
         const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-        if (lineOnScreen > comfortLimit && currentScrollY < maxScroll) {
-            currentScrollY = Math.min(currentScrollY + (lineOnScreen - comfortLimit), maxScroll);
+        if (lineOnScreen > limit && currentScrollY < maxScroll) {
+            currentScrollY = Math.min(currentScrollY + (lineOnScreen - limit), maxScroll);
             window.scrollTo(0, currentScrollY);
         }
     }
@@ -181,73 +190,63 @@
         document.getElementById('pause-btn').style.display = 'inline-block';
         document.getElementById('stop-btn').style.display = 'inline-block';
         document.getElementById('limit-line').style.display = 'block';
+        
+        // Forceer zichtbaarheid
         scanner.style.display = 'block';
+        scanner.style.opacity = '1';
         
         const bpm = parseInt(document.getElementById('bpm').value);
-        const beatsPerMeasure = parseInt(document.getElementById('time-sig').value);
-        const comfortLimit = window.innerHeight * 0.33;
+        const beats = parseInt(document.getElementById('time-sig').value);
+        const limit = window.innerHeight * 0.33;
         const glideFactor = parseInt(glideSlider.value) / 100;
 
-        currentScrollY = systems[0].top - comfortLimit;
+        currentScrollY = systems[0].top - limit;
         window.scrollTo({top: currentScrollY, behavior: 'smooth'});
         await new Promise(r => setTimeout(r, 800));
 
         for (let i = 0; i < systems.length; i++) {
             if (!isRunning) break;
             const sys = systems[i];
-            const totalDuration = ((sys.measures.length + 1) * beatsPerMeasure / bpm) * 60;
-            const transitionDuration = (i < systems.length - 1) ? totalDuration * glideFactor : 0;
-            const scanDuration = Math.max(0.01, totalDuration - transitionDuration);
-            const lineSpeed = (sys.bottom - sys.top) / scanDuration;
+            const totalDur = ((sys.measures.length + 1) * beats / bpm) * 60;
+            const transitionDur = (i < systems.length - 1) ? totalDur * glideFactor : 0;
+            const scanDur = totalDur - transitionDur;
+            const speed = (sys.bottom - sys.top) / scanDur;
 
-            // 1. SCAN FASE
-            await new Promise(resolve => {
-                let elapsed = 0;
-                let lastTime = performance.now();
+            // 1. SCAN
+            await new Promise(res => {
+                let start = performance.now();
                 function step(now) {
-                    if (!isRunning) return resolve();
-                    if (isPaused) { lastTime = now; scrollAnimationFrame = requestAnimationFrame(step); return; }
-                    const deltaTime = (now - lastTime) / 1000;
-                    lastTime = now;
-                    elapsed += deltaTime;
-
-                    const linePos = sys.top + (elapsed * lineSpeed);
-                    scanner.style.top = linePos + 'px';
-                    updateScrollPosition(linePos, comfortLimit);
-
-                    if (elapsed < scanDuration) scrollAnimationFrame = requestAnimationFrame(step);
-                    else resolve();
+                    if (!isRunning) return res();
+                    if (isPaused) { start += (performance.now() - now); scrollAnimationFrame = requestAnimationFrame(step); return; }
+                    const elapsed = (now - start) / 1000;
+                    const pos = sys.top + (elapsed * speed);
+                    scanner.style.top = pos + 'px';
+                    updateScroll(pos, limit);
+                    if (elapsed < scanDur) scrollAnimationFrame = requestAnimationFrame(step);
+                    else res();
                 }
                 scrollAnimationFrame = requestAnimationFrame(step);
             });
 
-            // 2. GLIDE FASE (met scroll-ondersteuning)
-            if (i < systems.length - 1 && isRunning && transitionDuration > 0) {
-                const nextSys = systems[i+1];
-                await new Promise(resolve => {
-                    let glideElapsed = 0;
-                    let lastGlideTime = performance.now();
+            // 2. GLIDE (met scroll-support)
+            if (i < systems.length - 1 && isRunning) {
+                const next = systems[i+1];
+                await new Promise(res => {
+                    let start = performance.now();
                     scanner.style.opacity = "0.6";
-                    function glideStep(now) {
-                        if (!isRunning) return resolve();
-                        if (isPaused) { lastGlideTime = now; scrollAnimationFrame = requestAnimationFrame(glideStep); return; }
-                        const deltaTime = (now - lastGlideTime) / 1000;
-                        lastGlideTime = now;
-                        glideElapsed += deltaTime;
-
-                        const progress = Math.min(glideElapsed / transitionDuration, 1);
-                        const ease = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-                        
-                        const currentLinePos = sys.bottom + (nextSys.top - sys.bottom) * ease;
-                        scanner.style.top = currentLinePos + 'px';
-                        
-                        // HIER: De scroll volgt de lijn ook tijdens de transitie
-                        updateScrollPosition(currentLinePos, comfortLimit);
-
-                        if (glideElapsed < transitionDuration) scrollAnimationFrame = requestAnimationFrame(glideStep);
-                        else { scanner.style.opacity = "1"; resolve(); }
+                    function gStep(now) {
+                        if (!isRunning) return res();
+                        if (isPaused) { start += (performance.now() - now); scrollAnimationFrame = requestAnimationFrame(gStep); return; }
+                        const elapsed = (now - start) / 1000;
+                        const prog = Math.min(elapsed / transitionDur, 1);
+                        const ease = prog < 0.5 ? 2 * prog * prog : 1 - Math.pow(-2 * prog + 2, 2) / 2;
+                        const pos = sys.bottom + (next.top - sys.bottom) * ease;
+                        scanner.style.top = pos + 'px';
+                        updateScroll(pos, limit);
+                        if (elapsed < transitionDur) scrollAnimationFrame = requestAnimationFrame(gStep);
+                        else { scanner.style.opacity = "1"; res(); }
                     }
-                    scrollAnimationFrame = requestAnimationFrame(glideStep);
+                    scrollAnimationFrame = requestAnimationFrame(gStep);
                 });
             }
         }
