@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v25 - Zero Overlap</title>
+    <title>Precision Sheet Scroller v26 - Sticky UI</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -11,52 +11,48 @@
             --measure-a: rgba(46, 204, 113, 0.3); --measure-b: rgba(52, 152, 219, 0.2);
             --danger: #ef4444; --success: #22c55e; --warning: #f59e0b;
         }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: var(--bg); color: white; display: flex; flex-direction: column; min-height: 100vh; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: var(--bg); color: white; }
         
-        /* DE HEADER: Maakt nu deel uit van de flow, dus drukt de PDF omlaag */
+        /* HET MENU: Nu Sticky! Het duwt de PDF weg maar reist mee. */
         #ui-layer { 
+            position: sticky; 
+            top: 0; 
             width: 100%; 
             background: var(--panel); 
             border-bottom: 3px solid var(--primary); 
             z-index: 2000;
-            flex-shrink: 0; /* Voorkomt dat het menu inklapt */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
         
-        /* Verberg-animatie voor tijdens spelen */
-        #ui-layer.performance-hidden { 
-            display: none;
-        }
+        #ui-layer.performance-hidden { display: none; }
         
-        .status-msg { background: var(--primary); text-align: center; padding: 10px; font-weight: bold; font-size: 14px; }
-        .controls-row { display: flex; gap: 15px; padding: 15px; align-items: center; justify-content: center; flex-wrap: wrap; }
+        .status-msg { background: var(--primary); text-align: center; padding: 8px; font-weight: bold; font-size: 13px; letter-spacing: 0.5px; }
+        .controls-row { display: flex; gap: 12px; padding: 12px; align-items: center; justify-content: center; flex-wrap: wrap; }
         
-        /* PDF AREA: Begint nu gegarandeerd NA de header */
         #pdf-render-area { 
             position: relative; 
-            flex-grow: 1;
             display: flex; flex-direction: column; align-items: center; 
             width: 100%;
-            background: var(--bg);
         }
         
         canvas { background: white; margin: 20px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 95vw; }
         
-        /* ZWEVENDE KNOPPEN */
         #perf-controls { position: fixed; bottom: 25px; right: 25px; z-index: 3000; display: none; gap: 12px; }
 
-        /* LIJNEN & MARKERINGEN */
+        /* SCANNEN EN MARKEREN */
         #scanning-line { position: absolute; left: 0; width: 100%; height: 5px; background: #ff0000; box-shadow: 0 0 15px #ff0000; z-index: 9999; display: none; pointer-events: none; }
         #limit-line { position: fixed; top: 33.33%; left: 0; width: 100%; height: 1px; border-top: 2px dashed rgba(255,255,255,0.4); z-index: 1000; pointer-events: none; display: none; }
 
-        .btn { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition: all 0.2s; }
-        .btn-start { background: var(--success); color: white; border: 2px solid rgba(255,255,255,0.2); }
-        .btn-pause { background: var(--warning); color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-        .btn-stop { background: var(--danger); color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .btn { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition: all 0.2s; }
+        .btn-start { background: var(--success); color: white; border: 1px solid rgba(255,255,255,0.3); }
+        .btn-pause { background: var(--warning); color: white; }
+        .btn-stop { background: var(--danger); color: white; }
         .btn-undo { background: #64748b; color: white; }
-        .btn-confirm { background: var(--accent); color: #000; }
+        /* De Bevestig knop is nu extra opvallend */
+        .btn-confirm { background: var(--accent); color: #000; box-shadow: 0 0 15px rgba(241, 196, 15, 0.4); border: 2px solid white; }
         
-        input, select { padding: 10px; border-radius: 6px; background: #334155; color: white; border: 1px solid #475569; }
-        .slider-box { display: flex; align-items: center; gap: 8px; font-size: 12px; background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 8px; }
+        input, select { padding: 8px; border-radius: 6px; background: #334155; color: white; border: 1px solid #475569; }
+        .slider-box { display: flex; align-items: center; gap: 8px; font-size: 11px; background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 8px; }
 
         .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--accent); pointer-events: none; z-index: 10; opacity: 0.4; }
         .measure-block { position: absolute; height: 100%; pointer-events: none; border-right: 1px solid white; z-index: 5; }
@@ -66,19 +62,19 @@
 <body>
 
 <div id="ui-layer">
-    <div class="status-msg" id="workflow-step">Selecteer eerst je PDF bestand</div>
+    <div class="status-msg" id="workflow-step">Selecteer een PDF om te beginnen</div>
     <div class="controls-row">
         <input type="file" id="upload">
-        <div>BPM <input type="number" id="bpm" value="120" style="width:60px;"></div>
+        <div>BPM <input type="number" id="bpm" value="120" style="width:55px;"></div>
         <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select>
         <div class="slider-box">
-            Transitie <input type="range" id="glide-percent" min="0" max="25" value="10" style="width:80px;">
+            Transitie <input type="range" id="glide-percent" min="0" max="25" value="10" style="width:70px;">
             <span id="glide-val">10%</span>
         </div>
         <select id="view-mode"><option value="FULL">Begeleid</option><option value="CLEAN">Schoon</option></select>
         <button id="undo-btn" class="btn btn-undo">Undo</button>
-        <button id="next-system-btn" class="btn btn-confirm" style="display:none;">Bevestig Regel</button>
-        <button id="start-btn" class="btn btn-start">START PERFORMANCE</button>
+        <button id="next-system-btn" class="btn btn-confirm" style="display:none;">BEVESTIG REGEL</button>
+        <button id="start-btn" class="btn btn-start">START</button>
     </div>
 </div>
 
@@ -88,10 +84,7 @@
 </div>
 
 <div id="limit-line"></div>
-
-<div id="pdf-render-area">
-    <div id="scanning-line"></div>
-    </div>
+<div id="pdf-render-area"><div id="scanning-line"></div></div>
 
 <script>
     const pdfjsLib = window['pdfjs-dist/build/pdf'];
@@ -121,10 +114,7 @@
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
         
-        const scannerBackup = document.getElementById('scanning-line');
-        container.innerHTML = '';
-        container.appendChild(scannerBackup);
-
+        container.innerHTML = '<div id="scanning-line"></div>';
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const viewport = page.getViewport({ scale: 1.5 });
@@ -133,7 +123,7 @@
             await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
             container.appendChild(canvas);
         }
-        state = 'TOP'; document.getElementById('workflow-step').innerText = "STAP 1: Klik op de BOVENKANT van de eerste notenbalk";
+        state = 'TOP'; document.getElementById('workflow-step').innerText = "STAP 1: Klik op de BOVENKANT van de notenbalk";
     });
 
     container.addEventListener('mousedown', (e) => {
@@ -145,7 +135,7 @@
         if (state === 'TOP') { 
             currentSystem = { top: y, bottom: 0, measures: [] }; 
             state = 'BOTTOM'; 
-            document.getElementById('workflow-step').innerText = "STAP 2: Klik op de ONDERKANT van deze notenbalk";
+            document.getElementById('workflow-step').innerText = "STAP 2: Klik op de ONDERKANT van de notenbalk";
         }
         else if (state === 'BOTTOM') {
             currentSystem.bottom = y;
@@ -157,7 +147,7 @@
             currentSystem.counterEl = counter; state = 'MEASURES';
             document.getElementById('next-system-btn').style.display = 'inline-block';
             visualElements.push(box, counter); updateCounter();
-            document.getElementById('workflow-step').innerText = "STAP 3: Klik op de maatstrepen. Klik daarna op 'Bevestig Regel'";
+            document.getElementById('workflow-step').innerText = "STAP 3: Klik op de maatstrepen. Klik daarna op 'BEVESTIG REGEL'";
         } else if (state === 'MEASURES') {
             const lastX = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
             currentSystem.measures.push(x);
@@ -177,7 +167,7 @@
         systems.push(currentSystem);
         currentSystem = null; visualElements = []; state = 'TOP';
         document.getElementById('next-system-btn').style.display = 'none';
-        document.getElementById('workflow-step').innerText = "Regel opgeslagen. Markeer de volgende regel of druk op START";
+        document.getElementById('workflow-step').innerText = "Regel opgeslagen! Markeer de volgende of druk op START";
     });
 
     function updateScroll(lineY, limit) {
