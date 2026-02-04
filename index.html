@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Sheet Scroller v21 - Fix</title>
+    <title>Precision Sheet Scroller v22 - Alignment Fix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -20,15 +20,15 @@
         canvas { background: white; margin-bottom: 20px; box-shadow: 0 0 30px rgba(0,0,0,0.5); max-width: 98vw; }
         
         #scanning-line { 
-            position: absolute; left: 0; width: 100%; height: 6px; 
-            background: #ff0000 !important; box-shadow: 0 0 20px #ff0000; 
+            position: absolute; left: 0; width: 100%; height: 4px; 
+            background: #ff0000 !important; box-shadow: 0 0 15px #ff0000; 
             z-index: 9999; display: none; pointer-events: none; 
         }
 
         #limit-line { position: fixed; top: 33.33%; left: 0; width: 100%; height: 1px; border-top: 2px dashed rgba(255,255,255,0.5); z-index: 1000; pointer-events: none; display: none; }
-        .system-box { position: absolute; left: 0; width: 100%; border: 3px solid var(--accent); pointer-events: none; z-index: 10; }
-        .measure-block { position: absolute; height: 100%; pointer-events: none; border-right: 2px solid white; z-index: 5; }
-        .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 6px 12px; border-radius: 8px; font-weight: bold; z-index: 20; transform: translateY(-50%); }
+        .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--accent); pointer-events: none; z-index: 10; opacity: 0.6; }
+        .measure-block { position: absolute; height: 100%; pointer-events: none; border-right: 1px solid white; z-index: 5; }
+        .measure-counter { position: absolute; right: 10px; background: var(--accent); color: black; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; z-index: 20; transform: translateY(-50%); }
 
         .btn { padding: 12px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; }
         .btn-start { background: var(--success); color: white; }
@@ -47,14 +47,8 @@
     <input type="file" id="upload" style="width: 160px;">
     <div>BPM: <input type="number" id="bpm" value="120" style="width:55px;"></div>
     <div>Maat: <select id="time-sig"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select></div>
-    
-    <div class="slider-container">
-        Transitie: <input type="range" id="glide-percent" min="0" max="25" value="10" style="width:80px;">
-        <span id="glide-val">10%</span>
-    </div>
-
+    <div class="slider-container">Transitie: <input type="range" id="glide-percent" min="0" max="25" value="10" style="width:80px;"><span id="glide-val">10%</span></div>
     <div>Weergave: <select id="view-mode"><option value="FULL">Begeleid</option><option value="CLEAN">Schoon</option></select></div>
-
     <button id="undo-btn" class="btn btn-undo">UNDO</button>
     <button id="next-system-btn" class="btn btn-next" style="display:none; background: var(--accent);">BEVESTIG</button>
     <button id="start-btn" class="btn btn-start">START</button>
@@ -99,7 +93,7 @@
             await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
             container.appendChild(canvas);
         }
-        state = 'TOP'; document.getElementById('workflow-step').innerText = "2. Tik op BOVENKANT";
+        state = 'TOP'; document.getElementById('workflow-step').innerText = "2. Tik op BOVENKANT van de notenbalk";
     });
 
     container.addEventListener('mousedown', (e) => {
@@ -132,19 +126,14 @@
     function updateCounter() {
         const beats = parseInt(document.getElementById('time-sig').value);
         const m = currentSystem.measures.length + 1;
-        currentSystem.counterEl.innerHTML = `M: ${m}<br>B: ${m * beats}`;
+        currentSystem.counterEl.innerHTML = `M: ${m}`;
     }
 
     document.getElementById('next-system-btn').addEventListener('click', () => {
-        const lastX = currentSystem.measures.length > 0 ? currentSystem.measures[currentSystem.measures.length - 1] : 0;
-        const finalBlock = document.createElement('div');
-        finalBlock.className = 'measure-block';
-        finalBlock.style.top = currentSystem.top + 'px'; finalBlock.style.height = (currentSystem.bottom - currentSystem.top) + 'px';
-        finalBlock.style.left = lastX + 'px'; finalBlock.style.width = (window.innerWidth - lastX) + 'px';
-        finalBlock.style.background = (currentSystem.measures.length + 1) % 2 === 0 ? 'var(--measure-b)' : 'var(--measure-a)';
-        container.appendChild(finalBlock); systems.push(currentSystem);
+        systems.push(currentSystem);
         currentSystem = null; visualElements = []; state = 'TOP';
         document.getElementById('next-system-btn').style.display = 'none';
+        document.getElementById('workflow-step').innerText = "Tik op BOVENKANT volgende regel of klik START";
     });
 
     function updateScroll(lineY, limit) {
@@ -170,7 +159,6 @@
         isRunning = true; isPaused = false;
         const mode = document.getElementById('view-mode').value;
         setVisibility(mode);
-        
         document.getElementById('start-btn').style.display = 'none';
         document.getElementById('pause-btn').style.display = 'inline-block';
         document.getElementById('stop-btn').style.display = 'inline-block';
@@ -194,14 +182,14 @@
             const scanDur = totalDur - transitionDur;
             const speed = (sys.bottom - sys.top) / scanDur;
 
-            // 1. SCAN FASE
+            // 1. SCAN FASE: Blijft exact tussen de gekozen TOP en BOTTOM
             await new Promise(res => {
                 let start = performance.now();
                 function step(now) {
                     if (!isRunning) return res();
                     if (isPaused) { start += (performance.now() - now); scrollAnimationFrame = requestAnimationFrame(step); return; }
                     const elapsed = (now - start) / 1000;
-                    const pos = sys.top + (elapsed * speed);
+                    const pos = Math.min(sys.top + (elapsed * speed), sys.bottom);
                     if (scannerEl) scannerEl.style.top = pos + 'px';
                     updateScroll(pos, limit);
                     if (elapsed < scanDur) scrollAnimationFrame = requestAnimationFrame(step); else res();
@@ -209,19 +197,20 @@
                 scrollAnimationFrame = requestAnimationFrame(step);
             });
 
-            // 2. GLIDE FASE
+            // 2. GLIDE FASE: Overbrugt de witruimte naar de volgende regel
             if (i < systems.length - 1 && isRunning && transitionDur > 0) {
                 const next = systems[i+1];
                 await new Promise(res => {
                     let gStart = performance.now();
-                    if (scannerEl) scannerEl.style.opacity = "0.6";
+                    if (scannerEl) scannerEl.style.opacity = "0.5";
                     function gStep(now) {
                         if (!isRunning) return res();
                         if (isPaused) { gStart += (performance.now() - now); scrollAnimationFrame = requestAnimationFrame(gStep); return; }
                         const elapsed = (now - gStart) / 1000;
                         const prog = Math.min(elapsed / transitionDur, 1);
-                        // Verbeterde Ease-in-out curve
                         const ease = prog < 0.5 ? 2 * prog * prog : 1 - Math.pow(-2 * prog + 2, 2) / 2;
+                        
+                        // Glijdt van bottom regel i naar top regel i+1
                         const pos = sys.bottom + (next.top - sys.bottom) * ease;
                         if (scannerEl) scannerEl.style.top = pos + 'px';
                         updateScroll(pos, limit);
