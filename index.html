@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Conductor Pro v77 - Live Zebra</title>
+    <title>Conductor Pro v78 - Permanent Black Cursor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -12,21 +12,22 @@
             --highlight: rgba(255, 200, 0, 0.25);
             --ui-bg: rgba(255, 255, 255, 0.98);
             
-            /* Duidelijke Zebra Kleuren */
+            /* Zebra */
             --zebra-odd: rgba(0, 0, 0, 0.05); 
             --zebra-even: rgba(0, 0, 0, 0.20);
             --measure-border: 2px solid #000;
         }
 
-        /* CURSOR FIX: Forceer crosshair overal */
-        body, html, #score-container, canvas, .sys-box, .meas-box {
+        /* CURSOR FIX: We gebruiken een Data-URI SVG om een geforceerd zwart kruis te tonen */
+        /* De '12 12' zorgt dat de klik precies in het midden van het 24x24 icoon zit */
+        body, html, #score-container, canvas, .sys-box, .meas-box, .btn {
             font-family: 'Georgia', serif; 
             margin: 0; 
             background: var(--paper); 
             color: var(--ink); 
             overflow-x: hidden; 
             user-select: none;
-            cursor: crosshair !important; /* Forceer zwarte crosshair */
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><line x1="12" y1="0" x2="12" y2="24" stroke="black" stroke-width="2"/><line x1="0" y1="12" x2="24" y2="12" stroke="black" stroke-width="2"/></svg>') 12 12, crosshair !important;
         }
 
         /* --- HEADER --- */
@@ -34,17 +35,20 @@
             position: fixed; top: 0; left: 0; width: 100%; z-index: 2000;
             background: var(--ui-bg); border-bottom: 2px solid var(--ink);
             box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.4s ease;
-            cursor: default !important; /* Normale cursor in menu */
+            cursor: default !important; /* In het menu willen we wel een gewone muis */
         }
+        
+        /* Knoppen in het menu krijgen de standaard hand-cursor terug voor duidelijkheid */
+        .btn, select, input { cursor: pointer !important; }
         
         .toolbar { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; justify-content: center; align-items: center; }
         .group { display: flex; flex-direction: column; align-items: center; }
         .label { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #666; margin-bottom: 2px; }
-        select, input { padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; cursor: pointer; }
+        select, input { padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; }
         
         .btn {
             padding: 8px 16px; border: 2px solid var(--ink); background: var(--white);
-            font-weight: bold; font-size: 11px; cursor: pointer !important; text-transform: uppercase;
+            font-weight: bold; font-size: 11px; text-transform: uppercase;
             box-shadow: 2px 2px 0px rgba(0,0,0,0.2); transition: transform 0.1s;
         }
         .btn:active { transform: translate(1px, 1px); box-shadow: none; }
@@ -163,7 +167,7 @@
 
 <script>
     const DB = {
-        name: "ConductorProDB_v77",
+        name: "ConductorProDB_v78",
         version: 1,
         db: null,
         async init() {
@@ -320,19 +324,14 @@
         updateLiveZebra(sys, currentClickX) {
             const sysBox = sys.ui[0];
             
-            // 1. Als er een preview block was, maak het definitief (update breedte)
+            // 1. Maak vorig preview block definitief
             if (sys.previewBlock) {
                 sys.previewBlock.style.width = (currentClickX - sys.lastX) + '%';
-                // Het preview block is nu een 'echt' block geworden
-            } else if (currentClickX > 0) {
-                // Eerste klik (geen preview), maak eerste block (0 tot click)
-                /* Dit edge case wordt afgevangen door init op 0 */
             }
 
-            // 2. Maak een NIEUW preview block voor de rest van de regel (Click tot 100%)
-            // Bepaal kleur (om en om)
-            const count = sys.measures.length; // Hoeveel clicks hebben we al gehad?
-            const isNextEven = (count % 2 === 1); // Wissel af
+            // 2. Maak NIEUW preview block voor de rest (tot 100%)
+            const count = sys.measures.length; 
+            const isNextEven = (count % 2 === 1); 
             
             const nextBlock = document.createElement('div'); 
             nextBlock.className = 'meas-box';
@@ -342,17 +341,13 @@
             
             sysBox.appendChild(nextBlock);
             
-            // Update pointers
             sys.lastX = currentClickX;
             sys.previewBlock = nextBlock;
         },
 
         commitSystem() {
-            // Het laatste 'preview' block is automatisch de laatste maat.
-            // We hoeven niets te doen, want updateLiveZebra tekent altijd tot 100%.
-            // We sorteren de measures alleen voor de data-opslag.
             this.tempSys.measures.sort((a,b) => a - b);
-            
+            // Laatste blok staat al goed door updateLiveZebra
             this.systems.push(this.tempSys);
             this.tempSys = null;
             this.state = 'MARKING_TOP'; this.setStatus("Regel opgeslagen.");
@@ -360,18 +355,12 @@
         },
 
         undo() {
-            // Undo is nu lastig met de live logic, simpele reset voor nu:
             if (this.state === 'MARKING_MEASURES') {
-                // Verwijder alles in de huidige sys box en begin opnieuw vanaf 'bottom' state
-                // (Betere undo zou complexer zijn, dit is veilig)
                 const sysBox = this.tempSys.ui[0];
                 while(sysBox.firstChild) sysBox.removeChild(sysBox.firstChild);
-                
                 this.tempSys.measures = [];
                 this.tempSys.lastX = 0;
                 this.tempSys.previewBlock = null;
-                
-                // Restart zebra
                 this.updateLiveZebra(this.tempSys, 0);
             } else if (this.systems.length > 0) {
                 const sys = this.systems.pop();
@@ -448,7 +437,6 @@
                     const elapsed = (now - start) / 1000;
                     const pct = Math.min(elapsed / totalDuration, 1);
                     
-                    // BEATS
                     const currentBeatTotal = Math.floor(pct * totalBeats);
                     if (currentBeatTotal !== lastBeatIdx && currentBeatTotal < totalBeats) {
                         const bInM = (currentBeatTotal % ts) + 1;
@@ -458,14 +446,12 @@
                         lastBeatIdx = currentBeatTotal;
                     }
 
-                    // HIGHLIGHT
                     const activeMeasureIdx = Math.floor(currentBeatTotal / ts);
                     sys.playbackBlocks.forEach((b, k) => {
                         if (k === activeMeasureIdx) b.classList.add('active');
                         else b.classList.remove('active');
                     });
 
-                    // LIJN BEWEGING
                     let y = 0;
                     if (elapsed <= scanTime) {
                         const sysPct = elapsed / scanTime;
@@ -478,8 +464,7 @@
                     this.ui.line.style.top = y + '%';
 
                     const lineRect = this.ui.line.getBoundingClientRect();
-                    const idealPos = window.innerHeight * 0.45; 
-                    const delta = lineRect.top - idealPos;
+                    const delta = lineRect.top - (window.innerHeight * 0.45);
                     if (delta > 10) window.scrollBy(0, Math.ceil(delta * 0.04));
 
                     if (elapsed < totalDuration) requestAnimationFrame(tick);
@@ -528,15 +513,14 @@
                 record.data.systems.forEach(s => {
                     this.tempSys = { top: s.top, bottom: s.bottom, measures: s.measures, ui: [] };
                     this.drawSystemBox(this.tempSys);
-                    // Re-draw voor load (gebruik hier de live update logica niet, maar statische loop)
-                    const sysDiv = this.tempSys.ui[0];
+                    // Force Zebra redraw
                     let px = 0;
                     [...s.measures, 100].forEach((mx, i) => {
-                        const div = document.createElement('div'); div.className = 'meas-box';
-                        div.style.left = px + '%'; div.style.width = (mx - px) + '%';
-                        div.style.background = (i % 2 === 0) ? 'var(--zebra-odd)' : 'var(--zebra-even)';
-                        sysDiv.appendChild(div);
-                        px = mx;
+                         const div = document.createElement('div'); div.className = 'meas-box';
+                         div.style.left = px + '%'; div.style.width = (mx - px) + '%';
+                         div.style.background = (i % 2 === 0) ? 'var(--zebra-odd)' : 'var(--zebra-even)';
+                         this.tempSys.ui[0].appendChild(div);
+                         px = mx;
                     });
                     this.commitSystem();
                 });
