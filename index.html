@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Conductor v64 - Label Fix</title>
+    <title>The Conductor App v65</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -57,35 +57,32 @@
         body.play-clean .system-box, body.play-clean .label-tag, body.play-clean .measure-block { opacity: 0 !important; }
     </style>
 </head>
-<body id="main-body">
+<body>
 
 <header id="master-header">
-    <div class="status-bar" id="step-info">Universal Conductor v64</div>
+    <div class="status-bar" id="step-info">Conductor App v65 - PDF Storage</div>
     <div class="nav-container">
         <div class="control-group">
-            <span class="input-label">Bibliotheek</span>
-            <select id="library-select" style="padding:4px;"><option value="">-- Kies --</option></select>
+            <span class="input-label">App Bibliotheek</span>
+            <select id="library-select" style="padding:4px;"><option value="">-- Geladen Scores --</option></select>
         </div>
         <div class="control-group">
-            <span class="input-label">PDF</span>
+            <span class="input-label">Import PDF</span>
             <input type="file" id="upload-pdf" style="font-size: 9px; width: 110px;">
         </div>
         <div class="control-group">
-            <span class="input-label">BPM/Maat</span>
+            <span class="input-label">Instellingen</span>
             <div style="display:flex; gap:4px;">
-                <input type="number" id="bpm-input" value="120" style="width:40px; padding:4px;">
-                <select id="ts-input" style="padding:4px;"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select>
+                <input type="number" id="bpm-input" value="120" style="width:35px; padding:4px;">
+                <select id="ts-input" style="padding:4px;"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option></select>
             </div>
         </div>
         <div class="control-group">
-            <span class="input-label">Mode/Glide</span>
-            <div style="display:flex; gap:8px; align-items:center;">
-                <select id="play-mode" style="padding:4px;"><option value="guide">Guide</option><option value="clean">Clean</option></select>
-                <input type="range" id="glide-input" min="0" max="40" value="15" style="width: 45px;">
-            </div>
+            <span class="input-label">Glide</span>
+            <input type="range" id="glide-input" min="0" max="40" value="15" style="width: 45px;">
         </div>
         <div style="display:flex; gap:6px;">
-            <button id="save-btn" class="btn" style="background:#3498db; color:white;">Save</button>
+            <button id="save-btn" class="btn" style="background:#3498db; color:white;">APP SAVE</button>
             <button id="undo-btn" class="btn">Undo</button>
             <button id="confirm-btn" class="btn" style="display:none; background:var(--ink); color:#fff;">OK (<span id="m-count">1</span>)</button>
             <button id="start-btn" class="btn" style="background:#2ecc71;">START</button>
@@ -103,34 +100,54 @@
 <div id="stop-btn" class="orb-btn">STOP</div>
 
 <script>
+    const DB_NAME = "ConductorAppDB";
+    const DB_VERSION = 1;
+    let db;
+
     const Engine = {
-        pdf: null, systems: [], currentSystem: null,
+        pdf: null, pdfData: null, systems: [], currentSystem: null,
         state: 'IDLE', isRunning: false, isPaused: false,
         audioCtx: null, visualHistory: [], lastBeat: -1,
 
-        init() {
+        async init() {
+            await this.initDB();
             this.bindEvents();
             this.refreshLibrary();
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
         },
 
+        initDB() {
+            return new Promise((resolve) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onupgradeneeded = (e) => {
+                    db = e.target.result;
+                    db.createObjectStore("scores", { keyPath: "name" });
+                };
+                request.onsuccess = (e) => { db = e.target.result; resolve(); };
+            });
+        },
+
         bindEvents() {
-            document.getElementById('upload-pdf').onchange = (e) => this.loadPDF(e);
+            document.getElementById('upload-pdf').onchange = (e) => this.handleFileUpload(e);
             document.getElementById('viewer-container').onmousedown = (e) => this.handleMarking(e);
             document.getElementById('confirm-btn').onclick = () => this.confirmSystem();
             document.getElementById('undo-btn').onclick = () => this.undo();
             document.getElementById('start-btn').onclick = () => this.start();
             document.getElementById('stop-btn').onclick = () => this.stop();
             document.getElementById('pause-btn').onclick = () => this.togglePause();
-            document.getElementById('save-btn').onclick = () => this.saveToLib();
-            document.getElementById('library-select').onchange = (e) => this.loadFromLib(e.target.value);
+            document.getElementById('save-btn').onclick = () => this.saveToApp();
+            document.getElementById('library-select').onchange = (e) => this.loadFromApp(e.target.value);
         },
 
-        async loadPDF(e) {
+        async handleFileUpload(e) {
             const file = e.target.files[0]; if (!file) return;
+            this.pdfData = await file.arrayBuffer();
+            this.loadPDF(this.pdfData);
+        },
+
+        async loadPDF(data) {
             this.updateStatus("Laden...");
-            const buffer = await file.arrayBuffer();
-            this.pdf = await pdfjsLib.getDocument(buffer).promise;
+            this.pdf = await pdfjsLib.getDocument({ data: data }).promise;
             const container = document.getElementById('viewer-container');
             container.querySelectorAll('canvas').forEach(c => c.remove());
             for (let i = 1; i <= this.pdf.numPages; i++) {
@@ -199,7 +216,6 @@
             this.systems.push(this.currentSystem);
             this.currentSystem = null; this.visualHistory = []; this.state = 'TOP';
             document.getElementById('confirm-btn').style.display = 'none';
-            this.updateStatus("Regel OK. Volgende?");
         },
 
         undo() {
@@ -222,53 +238,60 @@
             this.currentSystem.labelEl.innerText = `R${this.systems.length + 1}: ${mCount}M | ${mCount * ts}B`;
         },
 
-        saveToLib() {
-            if (!this.systems.length) return;
-            const name = prompt("Naam:");
+        saveToApp() {
+            if (!this.systems.length || !this.pdfData) return alert("Upload PDF en markeer eerst!");
+            const name = prompt("Geef deze partituur een naam:");
             if (!name) return;
-            const data = {
+            const transaction = db.transaction(["scores"], "readwrite");
+            const score = {
+                name: name,
+                pdfData: this.pdfData,
                 bpm: document.getElementById('bpm-input').value,
                 ts: document.getElementById('ts-input').value,
                 systems: this.systems.map(s => ({ top: s.top, bottom: s.bottom, measures: s.measures }))
             };
-            localStorage.setItem('conductor_v64_' + name, JSON.stringify(data));
-            this.refreshLibrary();
+            transaction.objectStore("scores").put(score);
+            transaction.oncomplete = () => { alert("Volledig opgeslagen in app!"); this.refreshLibrary(); };
         },
 
         refreshLibrary() {
             const select = document.getElementById('library-select');
-            select.innerHTML = '<option value="">-- Kies --</option>';
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key.startsWith('conductor_v64_')) {
+            select.innerHTML = '<option value="">-- Geladen Scores --</option>';
+            const transaction = db.transaction(["scores"], "readonly");
+            transaction.objectStore("scores").openCursor().onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (cursor) {
                     const opt = document.createElement('option');
-                    opt.value = key; opt.innerText = key.replace('conductor_v64_', '');
+                    opt.value = cursor.key; opt.innerText = cursor.key;
                     select.appendChild(opt);
+                    cursor.continue();
                 }
-            }
+            };
         },
 
-        loadFromLib(key) {
-            if (!key) return;
-            const data = JSON.parse(localStorage.getItem(key));
-            document.getElementById('bpm-input').value = data.bpm;
-            document.getElementById('ts-input').value = data.ts;
-            document.querySelectorAll('.system-box, .label-tag').forEach(el => el.remove());
-            this.systems = [];
-            data.systems.forEach(s => {
-                this.currentSystem = { top: s.top, bottom: s.bottom, measures: [], blocks: [] };
-                this.createUI(s.bottom);
-                s.measures.forEach(m => this.addMeasure(m));
-                this.confirmSystem();
-            });
-            this.updateStatus("Klaar. Open PDF.");
+        async loadFromApp(name) {
+            if (!name) return;
+            const transaction = db.transaction(["scores"], "readonly");
+            transaction.objectStore("scores").get(name).onsuccess = async (e) => {
+                const data = e.target.result;
+                this.pdfData = data.pdfData;
+                await this.loadPDF(this.pdfData);
+                document.getElementById('bpm-input').value = data.bpm;
+                document.getElementById('ts-input').value = data.ts;
+                this.systems = [];
+                data.systems.forEach(s => {
+                    this.currentSystem = { top: s.top, bottom: s.bottom, measures: [], blocks: [] };
+                    this.createUI(s.bottom);
+                    s.measures.forEach(m => this.addMeasure(m));
+                    this.confirmSystem();
+                });
+            };
         },
 
         async start() {
             if (!this.systems.length) return;
             this.isRunning = true; this.isPaused = false;
-            const mode = document.getElementById('play-mode').value;
-            document.body.classList.add('is-playing', 'play-' + mode);
+            document.body.classList.add('is-playing');
             document.getElementById('master-header').style.transform = 'translateY(-100%)';
             document.getElementById('pause-btn').style.display = 'flex';
             document.getElementById('stop-btn').style.display = 'flex';
@@ -290,24 +313,16 @@
                 const nM = sys.blocks.length; const tD = (nM * ts / bpm) * 60;
                 const trD = (idx < this.systems.length - 1) ? tD * gF : 0;
                 const sD = tD - trD; let startTime = performance.now();
-
                 const tick = (now) => {
                     if (!this.isRunning) return res();
                     if (this.isPaused) { startTime += (performance.now() - now); requestAnimationFrame(tick); return; }
                     const el = (now - startTime) / 1000;
                     const pr = Math.min(el / tD, 0.999);
                     const cB = Math.floor(pr * (nM * ts));
-
-                    if (cB !== this.lastBeat) {
-                        this.click(cB % ts === 0); this.lastBeat = cB;
-                        document.getElementById('beat-bubble').innerText = `M ${Math.floor(cB/ts)+1} | B ${(cB%ts)+1}`;
-                    }
+                    if (cB !== this.lastBeat) { this.click(cB % ts === 0); this.lastBeat = cB; document.getElementById('beat-bubble').innerText = `M ${Math.floor(cB/ts)+1} | B ${(cB%ts)+1}`; }
                     sys.blocks.forEach((b, k) => b.classList.toggle('active', k === Math.floor(cB/ts)));
-
                     let y = (el <= sD) ? sys.top + (el * ((sys.bottom - sys.top) / sD)) : sys.bottom + (this.systems[idx+1].top - sys.bottom) * ((el - sD) / trD);
-                    const line = document.getElementById('scanning-line'); line.style.top = y + '%';
-                    const r = line.getBoundingClientRect(); if (r.top > window.innerHeight * 0.40) window.scrollBy(0, r.top - window.innerHeight * 0.40);
-
+                    document.getElementById('scanning-line').style.top = y + '%';
                     if (el < tD) requestAnimationFrame(tick); else res();
                 };
                 requestAnimationFrame(tick);
@@ -324,15 +339,7 @@
         },
 
         togglePause() { this.isPaused = !this.isPaused; document.getElementById('pause-btn').innerText = this.isPaused ? "GA" : "PAUZE"; },
-
-        stop() {
-            this.isRunning = false; document.body.classList.remove('is-playing', 'play-guide', 'play-clean');
-            document.getElementById('master-header').style.transform = 'translateY(0)';
-            document.getElementById('pause-btn').style.display = 'none';
-            document.getElementById('stop-btn').style.display = 'none';
-            document.getElementById('scanning-line').style.display = 'none';
-        },
-
+        stop() { this.isRunning = false; document.body.classList.remove('is-playing'); document.getElementById('master-header').style.transform = 'translateY(0)'; document.getElementById('pause-btn').style.display = 'none'; document.getElementById('stop-btn').style.display = 'none'; document.getElementById('scanning-line').style.display = 'none'; },
         updateStatus(m) { document.getElementById('step-info').innerText = m; }
     };
     Engine.init();
