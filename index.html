@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Conductor v59 - Duo Chrome Edition</title>
+    <title>The Conductor v60 - Duo Chrome Precision</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
             --ink: #121212; --paper: #f8f9fa; --white: #ffffff;
             --border-width: 3px;
-            /* Versimpeld Duo-Systeem voor maximale rust */
             --measure-light: rgba(0, 0, 0, 0.05); 
-            --measure-dark: rgba(0, 0, 0, 0.18); 
+            --measure-dark: rgba(0, 0, 0, 0.15); 
+            --active-highlight: rgba(0, 0, 0, 0.35);
         }
 
         body { 
@@ -24,116 +24,110 @@
             position: fixed; top: 0; width: 100%; z-index: 100000;
             background: rgba(255, 255, 255, 0.98);
             border-bottom: var(--border-width) solid var(--ink);
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .status-bar { 
             background: var(--ink); color: var(--white); 
             text-align: center; padding: 6px; font-weight: bold; 
-            font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px;
+            font-size: 10px; text-transform: uppercase; letter-spacing: 2px;
         }
 
         .nav-container { 
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-            gap: 10px; padding: 10px; align-items: end; max-width: 1400px; margin: 0 auto;
+            display: flex; flex-wrap: wrap; gap: 15px; padding: 15px; 
+            align-items: flex-end; max-width: 1400px; margin: 0 auto; justify-content: space-around;
         }
 
-        @media (min-width: 1024px) {
-            .nav-container { display: flex; justify-content: space-between; padding: 12px 30px; }
-        }
-
-        .control-group { display: flex; flex-direction: column; gap: 5px; }
-        .row-group { display: flex; align-items: center; gap: 10px; }
-        .input-label { font-size: 10px; font-weight: 900; text-transform: uppercase; color: #666; }
+        .control-group { display: flex; flex-direction: column; gap: 4px; }
+        .input-label { font-size: 9px; font-weight: 900; text-transform: uppercase; color: #888; }
         
         .btn { 
-            padding: 10px 15px; border: var(--border-width) solid var(--ink); border-radius: 0px; 
+            padding: 10px 20px; border: var(--border-width) solid var(--ink); border-radius: 0px; 
             background: var(--white); color: var(--ink); cursor: pointer; 
-            font-weight: 900; font-family: sans-serif; text-transform: uppercase; font-size: 10px;
-            box-shadow: 3px 3px 0px var(--ink); transition: all 0.2s;
+            font-weight: 900; font-family: sans-serif; text-transform: uppercase; font-size: 11px;
+            box-shadow: 4px 4px 0px var(--ink); transition: all 0.1s;
         }
-        .btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0px var(--ink); }
+        .btn:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0px var(--ink); }
 
         /* --- VIEWER --- */
-        #content-wrapper { padding-top: 180px; }
-        @media (min-width: 1024px) { #content-wrapper { padding-top: 130px; } }
+        #content-wrapper { padding-top: 160px; transition: padding 0.5s; }
+        body.is-playing #content-wrapper { padding-top: 40px; }
 
         #viewer-container { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; }
-        canvas { box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin-bottom: 25px; width: 95% !important; height: auto !important; }
+        canvas { box-shadow: 0 10px 40px rgba(0,0,0,0.1); margin-bottom: 30px; width: 98% !important; max-width: 1200px; height: auto !important; background: white; }
 
         /* --- MARKERS --- */
-        #scanning-line { position: absolute; left: 0; width: 100%; height: 6px; background: #000; z-index: 99999; display: none; pointer-events: none; }
+        #scanning-line { 
+            position: absolute; left: 0; width: 100%; height: 4px; 
+            background: var(--ink); z-index: 110000; display: none; pointer-events: none; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        }
         #beat-bubble {
-            position: absolute; left: 50%; bottom: -35px; transform: translateX(-50%);
-            background: var(--ink); color: #fff; padding: 5px 12px; font-size: 11px; font-weight: 900; border: 2px solid #fff;
+            position: absolute; left: 50%; bottom: -40px; transform: translateX(-50%);
+            background: var(--ink); color: #fff; padding: 6px 16px; font-size: 12px; font-weight: 900; 
+            border: 2px solid #fff; white-space: nowrap; pointer-events: none;
         }
 
-        .system-box { position: absolute; left: 0; width: 100%; border: 5px solid var(--ink); pointer-events: none; z-index: 10; opacity: 0.8; box-sizing: border-box; }
-        
-        .measure-block { 
-            position: absolute; pointer-events: none; z-index: 5; 
-            border-right: 1px solid rgba(0,0,0,0.1);
-            height: 100%; /* Garandeert volledige hoogte binnen de regel */
-        }
-
+        .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--ink); pointer-events: none; z-index: 1000; box-sizing: border-box; }
+        .measure-block { position: absolute; height: 100%; top: 0; z-index: 500; transition: background 0.1s; }
         .label-tag { 
             position: absolute; right: 10px; background: var(--white); color: var(--ink); 
-            border: 2px solid var(--ink); padding: 5px 10px; font-weight: 900; font-size: 10px; z-index: 20; transform: translateY(-50%);
+            border: 2px solid var(--ink); padding: 4px 8px; font-weight: 900; font-size: 10px; z-index: 2000; transform: translateY(-50%);
         }
+
+        /* --- PERFORMANCE MODES --- */
+        body.play-clean #scanning-line { opacity: 0.6; } /* Lijn blijft licht zichtbaar voor focus */
+        body.play-clean .system-box, body.play-clean .label-tag, body.play-clean .measure-block { opacity: 0 !important; }
+        body.play-guide .measure-block.active { background: var(--active-highlight) !important; }
 
         /* --- ORBS --- */
         .orb-btn {
-            position: fixed; bottom: 25px; width: 60px; height: 60px;
+            position: fixed; bottom: 30px; width: 65px; height: 65px;
             border-radius: 50%; border: 4px solid var(--ink);
             display: none; align-items: center; justify-content: center;
-            cursor: pointer; z-index: 120000; font-weight: 900; font-size: 11px;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.15); transition: transform 0.2s;
-            text-align: center; line-height: 1;
+            cursor: pointer; z-index: 120000; font-weight: 900; font-size: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2); transition: transform 0.2s;
         }
-        #pause-btn { left: 25px; background: var(--white); color: var(--ink); }
-        #stop-btn { right: 25px; background: var(--ink); color: var(--white); }
-
-        body.play-clean #scanning-line, body.play-clean .system-box, body.play-clean .label-tag, body.play-clean .measure-block { opacity: 0 !important; }
-        body.play-guide .measure-block.active { background: #000 !important; opacity: 0.4 !important; }
+        #pause-btn { left: 30px; background: var(--white); color: var(--ink); }
+        #stop-btn { right: 30px; background: var(--ink); color: var(--white); }
+        
+        input[type="range"] { accent-color: var(--ink); }
     </style>
 </head>
 <body id="main-body">
 
 <header id="master-header">
-    <div class="status-bar" id="step-info">Universal Conductor v59</div>
+    <div class="status-bar" id="step-info">Universal Conductor v60</div>
     <div class="nav-container">
         <div class="control-group">
             <span class="input-label">Partituur</span>
-            <input type="file" id="upload-pdf" style="font-size: 10px; width: 140px;">
+            <input type="file" id="upload-pdf" style="font-size: 10px;">
         </div>
         
-        <div class="row-group">
-            <div class="control-group">
-                <span class="input-label">BPM</span>
-                <input type="number" id="bpm-input" value="120" style="width:50px;">
-            </div>
-            <div class="control-group">
-                <span class="input-label">Maat</span>
-                <select id="ts-input"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select>
+        <div class="control-group">
+            <span class="input-label">BPM & Maat</span>
+            <div style="display:flex; gap:5px;">
+                <input type="number" id="bpm-input" value="120" style="width:45px; padding:5px;">
+                <select id="ts-input" style="padding:5px;"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select>
             </div>
         </div>
 
-        <div class="row-group">
-            <div class="control-group">
-                <span class="input-label">Modus</span>
-                <select id="play-mode"><option value="guide">Begeleiding</option><option value="clean">Schoon</option></select>
-            </div>
-            <div class="control-group">
-                <span class="input-label">Glide</span>
-                <input type="range" id="glide-input" min="0" max="40" value="15" style="width: 60px;">
+        <div class="control-group">
+            <span class="input-label">Modus & Glide</span>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <select id="play-mode" style="padding:5px;"><option value="guide">Guide</option><option value="clean">Clean</option></select>
+                <input type="range" id="glide-input" min="0" max="40" value="15" style="width: 50px;">
             </div>
         </div>
 
-        <div class="row-group" style="margin-top: 5px;">
-            <label style="text-align:center"><span class="input-label">Metro</span><br><input type="checkbox" id="metronome-on" checked></label>
-            <button id="undo-btn" class="btn">Undo</button>
-            <button id="confirm-btn" class="btn" style="display:none; background: #f0f0f0;">OK (<span id="m-count">1</span>)</button>
-            <button id="start-btn" class="btn" style="background: #2ecc71; border-color: #000;">START</button>
+        <div style="display:flex; gap:10px;">
+            <label style="display:flex; flex-direction:column; align-items:center; cursor:pointer;">
+                <span class="input-label">Click</span>
+                <input type="checkbox" id="metronome-on" checked>
+            </label>
+            <button id="undo-btn" class="btn" style="background:#f8f9fa">Undo</button>
+            <button id="confirm-btn" class="btn" style="display:none; background: var(--ink); color: #fff;">OK (<span id="m-count">1</span>)</button>
+            <button id="start-btn" class="btn" style="background: #2ecc71;">START</button>
         </div>
     </div>
 </header>
@@ -184,7 +178,7 @@
                 await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
                 container.appendChild(canvas);
             }
-            this.state = 'TOP'; this.updateStatus("Klik BOVENKANT regel");
+            this.state = 'TOP'; this.updateStatus("Klik BOVENKANT van de notenbalk");
         },
 
         handleMarking(e) {
@@ -196,11 +190,11 @@
 
             if (this.state === 'TOP') {
                 this.currentSystem = { top: y, bottom: 0, measures: [], blocks: [] };
-                this.state = 'BOTTOM'; this.updateStatus("Klik ONDERKANT regel");
+                this.state = 'BOTTOM'; this.updateStatus("Klik ONDERKANT van de notenbalk");
             } else if (this.state === 'BOTTOM') {
                 this.currentSystem.bottom = y;
                 this.createUI(y);
-                this.state = 'MEASURES'; this.updateStatus("Klik Maatstrepen | Bevestig");
+                this.state = 'MEASURES'; this.updateStatus("Markeer maatstrepen");
                 document.getElementById('confirm-btn').style.display = 'inline-block';
             } else if (this.state === 'MEASURES') {
                 this.addM(x);
@@ -232,7 +226,6 @@
             b.style.width = (x - lx) + '%';
             b.style.background = isDark ? 'var(--measure-dark)' : 'var(--measure-light)';
             
-            // We voegen het blok toe AAN de system-box zodat de hoogte automatisch klopt
             this.currentSystem.boxEl.appendChild(b);
             this.currentSystem.blocks.push(b);
             this.visualHistory.push({ type: 'MEASURE', el: b });
@@ -250,7 +243,7 @@
             this.currentSystem.blocks.push(fb);
             this.systems.push(this.currentSystem);
             this.currentSystem = null; this.visualHistory = []; this.state = 'TOP';
-            this.updateStatus("Regel OK. Volgende?");
+            this.updateStatus("Regel opgeslagen.");
             document.getElementById('confirm-btn').style.display = 'none';
         },
 
@@ -265,9 +258,8 @@
         refreshLb() {
             if (!this.currentSystem) return;
             const c = this.currentSystem.measures.length + 1;
-            const b = c * parseInt(document.getElementById('ts-input').value);
             document.getElementById('m-count').innerText = c;
-            this.currentSystem.labelEl.innerHTML = `R${this.systems.length + 1}: ${c}M | ${b}B`;
+            this.currentSystem.labelEl.innerText = `Lijn ${this.systems.length + 1}: ${c} Maten`;
         },
 
         updateStatus(m) { document.getElementById('step-info').innerText = m; },
@@ -276,7 +268,9 @@
             if (!this.systems.length) return;
             this.isRunning = true;
             const mode = document.getElementById('play-mode').value;
-            document.getElementById('main-body').className = (mode === 'clean' ? 'play-clean' : 'play-guide');
+            document.body.classList.add('is-playing');
+            document.body.classList.add(mode === 'clean' ? 'play-clean' : 'play-guide');
+            
             document.getElementById('master-header').style.transform = 'translateY(-100%)';
             document.getElementById('pause-btn').style.display = 'flex';
             document.getElementById('stop-btn').style.display = 'flex';
@@ -295,34 +289,55 @@
 
         playSys(sys, idx, bpm, ts, gF) {
             return new Promise(res => {
-                const nM = sys.blocks.length; const tD = (nM * ts / bpm) * 60;
-                const trD = (idx < this.systems.length - 1) ? tD * gF : 0;
-                const sD = tD - trD; let sT = performance.now(); this.lastBeat = -1;
+                const nM = sys.blocks.length; 
+                const totalDuration = (nM * ts / bpm) * 60;
+                const transitionDuration = (idx < this.systems.length - 1) ? totalDuration * gF : 0;
+                const scanDuration = totalDuration - transitionDuration;
+                let startTime = performance.now();
 
                 const tick = (now) => {
                     if (!this.isRunning) return res();
-                    if (this.isPaused) { sT += (performance.now() - now); requestAnimationFrame(tick); return; }
-                    const el = (now - sT) / 1000;
-                    const pr = Math.min(el / tD, 0.999);
-                    const cB = Math.floor(pr * (nM * ts));
+                    if (this.isPaused) { startTime += (performance.now() - now); requestAnimationFrame(tick); return; }
+                    
+                    const elapsed = (now - startTime) / 1000;
+                    const progress = Math.min(elapsed / totalDuration, 0.999);
+                    
+                    // BEAT LOGICA
+                    const totalBeats = nM * ts;
+                    const currentTotalBeat = Math.floor(progress * totalBeats);
+                    const currentMIdx = Math.floor(currentTotalBeat / ts);
+                    const beatInM = (currentTotalBeat % ts) + 1;
 
-                    if (cB !== this.lastBeat) {
-                        this.click(cB % ts === 0); this.lastBeat = cB;
-                        document.getElementById('beat-bubble').innerText = `M${Math.floor(cB/ts)+1} • B${(cB%ts)+1}`;
+                    if (currentTotalBeat !== this.lastBeat) {
+                        this.click(currentTotalBeat % ts === 0);
+                        this.lastBeat = currentTotalBeat;
+                        document.getElementById('beat-bubble').innerText = `M ${currentMIdx + 1} | B ${beatInM}`;
                     }
-                    sys.blocks.forEach((b, k) => b.classList.toggle('active', k === Math.floor(cB/ts)));
 
+                    // Highlight de huidige maat
+                    sys.blocks.forEach((b, k) => b.classList.toggle('active', k === currentMIdx));
+
+                    // SCANNER BEWEGING
                     let y;
-                    if (el <= sD) y = sys.top + (el * ((sys.bottom - sys.top) / sD));
-                    else if (idx < this.systems.length - 1) y = sys.bottom + (this.systems[idx+1].top - sys.bottom) * ((el - sD) / trD);
-                    else y = sys.bottom;
+                    if (elapsed <= scanDuration) {
+                        y = sys.top + (elapsed * ((sys.bottom - sys.top) / scanDuration));
+                    } else if (idx < this.systems.length - 1) {
+                        const transProg = (elapsed - scanDuration) / transitionDuration;
+                        y = sys.bottom + (this.systems[idx+1].top - sys.bottom) * transProg;
+                    } else {
+                        y = sys.bottom;
+                    }
 
                     const line = document.getElementById('scanning-line');
                     line.style.top = y + '%';
-                    const r = line.getBoundingClientRect();
-                    if (r.top > window.innerHeight * 0.45) window.scrollBy(0, r.top - window.innerHeight * 0.45);
+                    
+                    // Scroll naar 40% van het scherm voor betere leesbaarheid
+                    const lineRect = line.getBoundingClientRect();
+                    if (lineRect.top > window.innerHeight * 0.40) {
+                        window.scrollBy(0, lineRect.top - window.innerHeight * 0.40);
+                    }
 
-                    if (el < tD) requestAnimationFrame(tick); else res();
+                    if (elapsed < totalDuration) requestAnimationFrame(tick); else res();
                 };
                 requestAnimationFrame(tick);
             });
@@ -331,24 +346,26 @@
         click(h) {
             if (!document.getElementById('metronome-on').checked) return;
             if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const o = this.audioCtx.createOscillator(); const g = this.audioCtx.createGain();
+            const o = this.audioCtx.createOscillator();
+            const g = this.audioCtx.createGain();
             o.connect(g); g.connect(this.audioCtx.destination);
-            o.frequency.value = h ? 1000 : 600;
-            g.gain.setValueAtTime(0.1, this.audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.05);
-            o.start(); o.stop(this.audioCtx.currentTime + 0.05);
+            o.frequency.value = h ? 1200 : 800; // Iets hogere tonen voor Duo Chrome
+            g.gain.setValueAtTime(0.15, this.audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.04);
+            o.start(); o.stop(this.audioCtx.currentTime + 0.04);
         },
 
         togglePause() { this.isPaused = !this.isPaused; document.getElementById('pause-btn').innerText = this.isPaused ? "GA" : "PAUZE"; },
 
         stop() {
             this.isRunning = false; this.isPaused = false;
-            document.getElementById('main-body').className = '';
+            document.body.classList.remove('is-playing', 'play-clean', 'play-guide');
             document.getElementById('master-header').style.transform = 'translateY(0)';
             document.getElementById('pause-btn').style.display = 'none';
             document.getElementById('stop-btn').style.display = 'none';
             document.getElementById('scanning-line').style.display = 'none';
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            this.updateStatus("Gestopt.");
         }
     };
     Engine.init();
