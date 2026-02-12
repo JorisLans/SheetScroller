@@ -3,23 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Conductor Pro v72 - Precision Fix</title>
+    <title>Conductor Pro v73 - Smooth UX</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
             --ink: #111; --paper: #f4f4f4; --white: #fff;
             --accent: #e74c3c; --highlight: rgba(231, 76, 60, 0.25);
             --ui-bg: rgba(255, 255, 255, 0.98);
+            /* Zebra kleuren voor tijdens editen */
+            --zebra-1: rgba(0, 0, 0, 0.03); 
+            --zebra-2: rgba(0, 0, 0, 0.12);
         }
 
         body { font-family: 'Georgia', serif; margin: 0; background: var(--paper); color: var(--ink); overflow-x: hidden; }
 
-        /* --- HEADER UI --- */
+        /* --- HEADER --- */
         #ui-bar {
             position: fixed; top: 0; left: 0; width: 100%; z-index: 2000;
             background: var(--ui-bg); border-bottom: 2px solid var(--ink);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            transition: transform 0.4s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.4s ease;
         }
         
         .toolbar { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; justify-content: center; align-items: center; }
@@ -37,14 +39,13 @@
         .btn-danger { background: #e74c3c; color: white; border-color: #c0392b; }
 
         /* --- VIEWER --- */
-        /* Dit is de container die beweegt. Alles erin beweegt mee. */
         #score-container { 
-            position: relative; /* Cruciaal voor absolute children */
-            margin-top: 140px; /* Ruimte voor header */
+            position: relative; 
+            margin-top: 140px; 
             display: flex; flex-direction: column; align-items: center; 
             min-height: 100vh;
-            transition: margin-top 0.4s ease; /* Soepele beweging bij start */
-            cursor: crosshair; /* Visuele indicatie voor precisie */
+            transition: margin-top 0.4s ease; 
+            cursor: crosshair; 
         }
         
         canvas { 
@@ -52,11 +53,13 @@
             max-width: 96%; height: auto; background: white; pointer-events: none; 
         }
 
-        /* --- OVERLAYS (Relatief aan score-container) --- */
+        /* --- OVERLAYS --- */
         #cursor-line {
             position: absolute; left: 0; width: 100%; height: 4px;
             background: var(--accent); z-index: 500; display: none; pointer-events: none;
             box-shadow: 0 0 10px var(--accent);
+            /* Smooth transition voor de lijn zelf */
+            transition: top 0.05s linear; 
         }
 
         #info-bubble {
@@ -66,9 +69,15 @@
             white-space: nowrap; pointer-events: none;
         }
 
-        .sys-box { position: absolute; left: 0; width: 100%; border: 2px solid blue; pointer-events: none; opacity: 0.5; }
-        .meas-box { position: absolute; top: 0; height: 100%; border-right: 1px solid blue; pointer-events: none; }
-        .meas-box.active { background: var(--highlight); opacity: 1; }
+        .sys-box { position: absolute; left: 0; width: 100%; border: 2px solid blue; pointer-events: none; opacity: 0.6; }
+        
+        /* De maatblokken (Zebra) */
+        .meas-box { 
+            position: absolute; top: 0; height: 100%; 
+            border-right: 1px solid rgba(0,0,255,0.3); 
+            pointer-events: none; 
+        }
+        .meas-box.active { background: var(--highlight) !important; opacity: 1 !important; }
 
         /* --- FAB BUTTONS --- */
         .fab {
@@ -82,7 +91,6 @@
         #pause-fab { left: 20px; background: #f1c40f; color: black; }
 
         /* --- MODES --- */
-        /* Als we spelen, schuiven we de header weg en verminderen we de margin */
         body.mode-play #ui-bar { transform: translateY(-100%); }
         body.mode-play #score-container { margin-top: 20px; } 
         body.mode-clean .sys-box, body.mode-clean .meas-box { opacity: 0 !important; }
@@ -140,7 +148,7 @@
 <script>
     // --- DATABASE ---
     const DB = {
-        name: "ConductorProDB_v72", // Nieuwe naam voor schone start
+        name: "ConductorProDB_v73",
         version: 1,
         db: null,
         async init() {
@@ -231,24 +239,12 @@
             document.getElementById('lib-select').onchange = (e) => this.handleLoad(e.target.value);
             document.getElementById('btn-del').onclick = () => this.handleDelete();
             
-            // EDITOR CLICK HANDLER (DE PRECISIE FIX)
+            // EDITOR
             this.ui.container.onmousedown = (e) => {
                 if (this.isRunning) return;
-                
-                // 1. Haal de 'Bounding Rect' van de container op.
-                // Dit geeft ons de exacte positie van de container op het scherm.
                 const rect = this.ui.container.getBoundingClientRect();
-                
-                // 2. Bereken Y relatief aan de BOVENKANT van de container.
-                // e.clientY is muis op scherm. rect.top is bovenkant container op scherm.
-                // Het verschil is de exacte pixel in de container, ongeacht scroll of margin.
-                const relativeY = e.clientY - rect.top;
-                const relativeX = e.clientX - rect.left;
-
-                // 3. Zet om naar percentage voor responsive scaling
-                const yPct = (relativeY / rect.height) * 100;
-                const xPct = (relativeX / rect.width) * 100;
-
+                const yPct = ((e.clientY - rect.top) / rect.height) * 100;
+                const xPct = ((e.clientX - rect.left) / rect.width) * 100;
                 this.onEditorClick(yPct, xPct);
             };
 
@@ -296,7 +292,8 @@
             }
             else if (this.state === 'MARKING_MEASURES') {
                 this.tempSys.measures.push(xPct);
-                this.drawMeasureLine(this.tempSys, xPct);
+                // LIVE ZEBRA: Teken blok van vorig punt tot huidig punt
+                this.drawMeasureBlock(this.tempSys, xPct);
             }
         },
 
@@ -306,18 +303,40 @@
             this.ui.container.appendChild(div); sys.ui.push(div);
         },
 
-        drawMeasureLine(sys, x) {
+        // Vernieuwde functie voor Zebra-effect tijdens editen
+        drawMeasureBlock(sys, currentX) {
+            // Bepaal startpunt (0 of vorige maatstreep)
+            const sortedMeasures = [...sys.measures].sort((a,b) => a - b);
+            const index = sortedMeasures.indexOf(currentX);
+            const prevX = (index > 0) ? sortedMeasures[index - 1] : 0;
+            
             const div = document.createElement('div'); div.className = 'meas-box';
-            // Visueel truukje: We tekenen de streep relative aan de container, 
-            // maar in play mode vullen we de ruimte ertussen.
-            // Voor nu: simpele verticale lijn op X positie.
-            div.style.left = x + '%'; div.style.borderRight = "2px solid blue";
-            div.style.top = sys.top + '%'; div.style.height = (sys.bottom - sys.top) + '%';
-            this.ui.container.appendChild(div); sys.ui.push(div);
+            div.style.left = prevX + '%';
+            div.style.width = (currentX - prevX) + '%';
+            
+            // Zebra kleur
+            const isEven = (index % 2 === 0);
+            div.style.background = isEven ? 'var(--zebra-1)' : 'var(--zebra-2)';
+            
+            // Toevoegen aan systeem
+            const sysBox = sys.ui[0];
+            sysBox.appendChild(div);
         },
 
         commitSystem() {
             this.tempSys.measures.sort((a,b) => a - b);
+            
+            // Teken de allerlaatste maat (van laatste klik tot 100%)
+            const lastX = this.tempSys.measures[this.tempSys.measures.length - 1] || 0;
+            if (lastX < 100) {
+                const div = document.createElement('div'); div.className = 'meas-box';
+                div.style.left = lastX + '%';
+                div.style.width = (100 - lastX) + '%';
+                const isEven = (this.tempSys.measures.length % 2 === 0);
+                div.style.background = isEven ? 'var(--zebra-1)' : 'var(--zebra-2)';
+                this.tempSys.ui[0].appendChild(div);
+            }
+
             this.systems.push(this.tempSys);
             this.tempSys = null;
             this.state = 'MARKING_TOP'; this.setStatus("Regel opgeslagen.");
@@ -327,7 +346,9 @@
         undo() {
             if (this.state === 'MARKING_MEASURES' && this.tempSys.measures.length > 0) {
                 this.tempSys.measures.pop();
-                const el = this.tempSys.ui.pop(); if(el) el.remove();
+                // Verwijder laatste blokje in de sys-box
+                const sysBox = this.tempSys.ui[0];
+                if (sysBox.lastChild) sysBox.lastChild.remove();
             } else if (this.systems.length > 0) {
                 const sys = this.systems.pop();
                 sys.ui.forEach(el => el.remove());
@@ -344,8 +365,7 @@
             AudioEngine.resume();
             
             document.body.classList.add('mode-play');
-            const viewMode = document.getElementById('inp-view').value;
-            if(viewMode === 'clean') document.body.classList.add('mode-clean');
+            if(document.getElementById('inp-view').value === 'clean') document.body.classList.add('mode-clean');
             
             this.ui.line.style.display = 'block';
             document.getElementById('stop-fab').style.display = 'flex';
@@ -355,7 +375,7 @@
             const ts = parseInt(document.getElementById('inp-ts').value);
             const useClick = document.getElementById('inp-click').value === 'on';
 
-            // Teken 'echte' maatblokken voor highlighting (verborgen tot play)
+            // Herteken blokken voor playback (clean logic)
             this.preparePlaybackVisuals();
 
             for (let i = 0; i < this.systems.length; i++) {
@@ -366,22 +386,18 @@
         },
 
         preparePlaybackVisuals() {
-            // Converteer lijntjes naar vlakken voor highlighting
-            this.clearOverlays(); // Ruim editor lijnen op
+            this.clearOverlays(); 
             this.systems.forEach(sys => {
-                // Teken container box
                 const sysDiv = document.createElement('div'); sysDiv.className = 'sys-box';
                 sysDiv.style.top = sys.top + '%'; sysDiv.style.height = (sys.bottom - sys.top) + '%';
                 this.ui.container.appendChild(sysDiv);
                 
-                // Teken maatvlakken
                 const coords = [0, ...sys.measures, 100];
                 sys.playbackBlocks = [];
                 for(let i=0; i<coords.length-1; i++) {
                     const blk = document.createElement('div'); blk.className = 'meas-box';
                     blk.style.left = coords[i] + '%'; 
                     blk.style.width = (coords[i+1] - coords[i]) + '%';
-                    // Voeg toe aan sysDiv zodat ze relatief zijn aan de regel
                     sysDiv.appendChild(blk);
                     sys.playbackBlocks.push(blk);
                 }
@@ -394,7 +410,7 @@
                 const totalBeats = measureCount * ts;
                 const totalDuration = (totalBeats / bpm) * 60;
                 
-                const glideRatio = 0.15; // 15% glide
+                const glideRatio = 0.15; 
                 const isLastSys = idx === this.systems.length - 1;
                 const scanTime = isLastSys ? totalDuration : totalDuration * (1 - glideRatio);
                 const glideTime = isLastSys ? 0 : totalDuration * glideRatio;
@@ -438,11 +454,15 @@
                     }
                     this.ui.line.style.top = y + '%';
 
-                    // SCROLL FIX: Gebruik line.getBoundingClientRect() om te checken of hij te laag komt
+                    // --- SMOOTH SCROLL (De "Follow-Cam") ---
                     const lineRect = this.ui.line.getBoundingClientRect();
-                    const threshold = window.innerHeight * 0.60;
-                    if (lineRect.top > threshold) {
-                         window.scrollBy({ top: lineRect.top - (window.innerHeight * 0.40), behavior: 'smooth' });
+                    const idealPos = window.innerHeight * 0.45; // Doel: lijn op 45% v/h scherm
+                    const delta = lineRect.top - idealPos;
+
+                    if (delta > 0) {
+                        // Als de lijn te laag is, scroll een fractie van de afstand (5%) per frame
+                        // Dit creëert een zeer soepele, organische beweging zonder schokken.
+                        window.scrollBy(0, delta * 0.05); 
                     }
 
                     if (elapsed < totalDuration) requestAnimationFrame(tick);
@@ -459,9 +479,9 @@
             document.getElementById('stop-fab').style.display = 'none';
             document.getElementById('pause-fab').style.display = 'none';
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            // Herstel editor view (optioneel, of reload om schoon te beginnen)
         },
 
+        // --- STORAGE ---
         async handleSave() {
             if (!this.currentPdfBlob || !this.systems.length) return alert("Niets om op te slaan.");
             const name = prompt("Naam:");
@@ -487,17 +507,18 @@
                 const record = await DB.load(name);
                 this.currentPdfBlob = record.pdfBlob;
                 await this.renderPDF(record.pdfBlob);
-                this.systems = []; // Clear old
-                
-                // Restore logic
+                this.systems = [];
                 record.data.systems.forEach(s => {
                     this.tempSys = { top: s.top, bottom: s.bottom, measures: s.measures, ui: [] };
                     this.drawSystemBox(this.tempSys);
-                    // Re-draw measures visually
-                    s.measures.forEach(mx => this.drawMeasureLine(this.tempSys, mx));
+                    // Re-draw zebra blocks
+                    let px = 0;
+                    [...s.measures, 100].forEach(mx => {
+                        if (mx > 0) this.drawMeasureBlock(this.tempSys, mx);
+                        px = mx;
+                    });
                     this.commitSystem();
                 });
-                
                 document.getElementById('inp-bpm').value = record.data.bpm;
                 document.getElementById('inp-ts').value = record.data.ts;
                 this.setStatus("Geladen: " + name);
@@ -513,4 +534,4 @@
     App.start();
 </script>
 </body>
-                    </html>
+</html>
