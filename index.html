@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Conductor App v65</title>
+    <title>The Conductor App v66 - Auto-Scroll Fix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -36,20 +36,21 @@
         }
         .btn:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0px var(--ink); }
 
-        #content-wrapper { padding-top: 170px; }
+        #content-wrapper { padding-top: 170px; transition: padding 0.5s ease; }
         body.is-playing #content-wrapper { padding-top: 40px; }
 
         #viewer-container { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; }
         canvas { box-shadow: 0 10px 40px rgba(0,0,0,0.1); margin-bottom: 30px; width: 98% !important; max-width: 1200px; height: auto !important; background: white; }
 
-        #scanning-line { position: absolute; left: 0; width: 100%; height: 4px; background: var(--ink); z-index: 110000; display: none; pointer-events: none; }
+        #scanning-line { position: absolute; left: 0; width: 100%; height: 4px; background: #e74c3c; z-index: 110000; display: none; pointer-events: none; box-shadow: 0 0 10px rgba(231, 76, 60, 0.5); }
         #beat-bubble { position: absolute; left: 50%; bottom: -40px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 6px 16px; font-size: 12px; font-weight: 900; border: 2px solid #fff; white-space: nowrap; }
 
         .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--ink); pointer-events: none; z-index: 1000; box-sizing: border-box; }
         .measure-block { position: absolute; height: 100%; top: 0; z-index: 500; pointer-events: none; }
         .label-tag { position: absolute; right: 10px; background: var(--white); color: var(--ink); border: 2px solid var(--ink); padding: 4px 8px; font-weight: 900; font-size: 10px; z-index: 2000; transform: translateY(-50%); }
 
-        .orb-btn { position: fixed; bottom: 30px; width: 65px; height: 65px; border-radius: 50%; border: 4px solid var(--ink); display: none; align-items: center; justify-content: center; cursor: pointer; z-index: 120000; font-weight: 900; font-size: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .orb-btn { position: fixed; bottom: 30px; width: 65px; height: 65px; border-radius: 50%; border: 4px solid var(--ink); display: none; align-items: center; justify-content: center; cursor: pointer; z-index: 120000; font-weight: 900; font-size: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transition: transform 0.1s; }
+        .orb-btn:active { transform: scale(0.9); }
         #pause-btn { left: 30px; background: var(--white); color: var(--ink); }
         #stop-btn { right: 30px; background: var(--ink); color: var(--white); }
 
@@ -60,18 +61,18 @@
 <body>
 
 <header id="master-header">
-    <div class="status-bar" id="step-info">Conductor App v65 - PDF Storage</div>
+    <div class="status-bar" id="step-info">Conductor App v66 - Scroll Fix</div>
     <div class="nav-container">
         <div class="control-group">
             <span class="input-label">App Bibliotheek</span>
             <select id="library-select" style="padding:4px;"><option value="">-- Geladen Scores --</option></select>
         </div>
         <div class="control-group">
-            <span class="input-label">Import PDF</span>
+            <span class="input-label">Nieuwe PDF</span>
             <input type="file" id="upload-pdf" style="font-size: 9px; width: 110px;">
         </div>
         <div class="control-group">
-            <span class="input-label">Instellingen</span>
+            <span class="input-label">BPM/Maat</span>
             <div style="display:flex; gap:4px;">
                 <input type="number" id="bpm-input" value="120" style="width:35px; padding:4px;">
                 <select id="ts-input" style="padding:4px;"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option></select>
@@ -82,7 +83,7 @@
             <input type="range" id="glide-input" min="0" max="40" value="15" style="width: 45px;">
         </div>
         <div style="display:flex; gap:6px;">
-            <button id="save-btn" class="btn" style="background:#3498db; color:white;">APP SAVE</button>
+            <button id="save-btn" class="btn" style="background:#3498db; color:white;">SAVE</button>
             <button id="undo-btn" class="btn">Undo</button>
             <button id="confirm-btn" class="btn" style="display:none; background:var(--ink); color:#fff;">OK (<span id="m-count">1</span>)</button>
             <button id="start-btn" class="btn" style="background:#2ecc71;">START</button>
@@ -248,10 +249,11 @@
                 pdfData: this.pdfData,
                 bpm: document.getElementById('bpm-input').value,
                 ts: document.getElementById('ts-input').value,
+                glide: document.getElementById('glide-input').value,
                 systems: this.systems.map(s => ({ top: s.top, bottom: s.bottom, measures: s.measures }))
             };
             transaction.objectStore("scores").put(score);
-            transaction.oncomplete = () => { alert("Volledig opgeslagen in app!"); this.refreshLibrary(); };
+            transaction.oncomplete = () => { alert("Volledig opgeslagen!"); this.refreshLibrary(); };
         },
 
         refreshLibrary() {
@@ -278,6 +280,7 @@
                 await this.loadPDF(this.pdfData);
                 document.getElementById('bpm-input').value = data.bpm;
                 document.getElementById('ts-input').value = data.ts;
+                document.getElementById('glide-input').value = data.glide || 15;
                 this.systems = [];
                 data.systems.forEach(s => {
                     this.currentSystem = { top: s.top, bottom: s.bottom, measures: [], blocks: [] };
@@ -313,16 +316,28 @@
                 const nM = sys.blocks.length; const tD = (nM * ts / bpm) * 60;
                 const trD = (idx < this.systems.length - 1) ? tD * gF : 0;
                 const sD = tD - trD; let startTime = performance.now();
+                const line = document.getElementById('scanning-line');
+
                 const tick = (now) => {
                     if (!this.isRunning) return res();
                     if (this.isPaused) { startTime += (performance.now() - now); requestAnimationFrame(tick); return; }
                     const el = (now - startTime) / 1000;
                     const pr = Math.min(el / tD, 0.999);
                     const cB = Math.floor(pr * (nM * ts));
+
                     if (cB !== this.lastBeat) { this.click(cB % ts === 0); this.lastBeat = cB; document.getElementById('beat-bubble').innerText = `M ${Math.floor(cB/ts)+1} | B ${(cB%ts)+1}`; }
                     sys.blocks.forEach((b, k) => b.classList.toggle('active', k === Math.floor(cB/ts)));
+
                     let y = (el <= sD) ? sys.top + (el * ((sys.bottom - sys.top) / sD)) : sys.bottom + (this.systems[idx+1].top - sys.bottom) * ((el - sD) / trD);
-                    document.getElementById('scanning-line').style.top = y + '%';
+                    line.style.top = y + '%';
+
+                    // AUTO-SCROLL FIX: Houd de lijn op 40% van de viewport hoogte
+                    const lineRect = line.getBoundingClientRect();
+                    const targetPos = window.innerHeight * 0.40;
+                    if (lineRect.top > targetPos) {
+                        window.scrollBy(0, lineRect.top - targetPos);
+                    }
+
                     if (el < tD) requestAnimationFrame(tick); else res();
                 };
                 requestAnimationFrame(tick);
@@ -339,7 +354,7 @@
         },
 
         togglePause() { this.isPaused = !this.isPaused; document.getElementById('pause-btn').innerText = this.isPaused ? "GA" : "PAUZE"; },
-        stop() { this.isRunning = false; document.body.classList.remove('is-playing'); document.getElementById('master-header').style.transform = 'translateY(0)'; document.getElementById('pause-btn').style.display = 'none'; document.getElementById('stop-btn').style.display = 'none'; document.getElementById('scanning-line').style.display = 'none'; },
+        stop() { this.isRunning = false; document.body.classList.remove('is-playing'); document.getElementById('master-header').style.transform = 'translateY(0)'; document.getElementById('pause-btn').style.display = 'none'; document.getElementById('stop-btn').style.display = 'none'; document.getElementById('scanning-line').style.display = 'none'; window.scrollTo(0,0); },
         updateStatus(m) { document.getElementById('step-info').innerText = m; }
     };
     Engine.init();
