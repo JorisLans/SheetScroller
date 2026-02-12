@@ -3,155 +3,179 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Conductor Pro v78 - Permanent Black Cursor</title>
+    <title>Conductor Pro v79 - Studio Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
-            --ink: #111; --paper: #f4f4f4; --white: #fff;
-            --accent: #ff0000; 
-            --highlight: rgba(255, 200, 0, 0.25);
-            --ui-bg: rgba(255, 255, 255, 0.98);
+            /* Modern Palette */
+            --bg-body: #f1f5f9;
+            --panel-bg: #1e293b; /* Dark Slate */
+            --text-light: #f8fafc;
+            --text-dark: #334155;
+            
+            --accent: #ef4444; /* Red */
+            --primary: #3b82f6; /* Blue */
+            --success: #22c55e; /* Green */
+            
+            --highlight: rgba(255, 200, 0, 0.3);
             
             /* Zebra */
-            --zebra-odd: rgba(0, 0, 0, 0.05); 
-            --zebra-even: rgba(0, 0, 0, 0.20);
+            --zebra-odd: rgba(0, 0, 0, 0.04); 
+            --zebra-even: rgba(0, 0, 0, 0.15);
             --measure-border: 2px solid #000;
         }
 
-        /* CURSOR FIX: We gebruiken een Data-URI SVG om een geforceerd zwart kruis te tonen */
-        /* De '12 12' zorgt dat de klik precies in het midden van het 24x24 icoon zit */
-        body, html, #score-container, canvas, .sys-box, .meas-box, .btn {
-            font-family: 'Georgia', serif; 
-            margin: 0; 
-            background: var(--paper); 
-            color: var(--ink); 
-            overflow-x: hidden; 
-            user-select: none;
+        /* CURSOR FIX: Permanent Black SVG */
+        body, html, #score-container, canvas, .sys-box, .meas-box {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0; background: var(--bg-body); color: var(--text-dark);
+            overflow-x: hidden; user-select: none;
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><line x1="12" y1="0" x2="12" y2="24" stroke="black" stroke-width="2"/><line x1="0" y1="12" x2="24" y2="12" stroke="black" stroke-width="2"/></svg>') 12 12, crosshair !important;
         }
 
-        /* --- HEADER --- */
+        /* --- PRO HEADER --- */
         #ui-bar {
             position: fixed; top: 0; left: 0; width: 100%; z-index: 2000;
-            background: var(--ui-bg); border-bottom: 2px solid var(--ink);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.4s ease;
-            cursor: default !important; /* In het menu willen we wel een gewone muis */
+            background: var(--panel-bg); 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2); 
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            color: var(--text-light);
+            padding-bottom: 10px;
+            cursor: default !important;
         }
         
-        /* Knoppen in het menu krijgen de standaard hand-cursor terug voor duidelijkheid */
-        .btn, select, input { cursor: pointer !important; }
-        
-        .toolbar { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; justify-content: center; align-items: center; }
-        .group { display: flex; flex-direction: column; align-items: center; }
-        .label { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #666; margin-bottom: 2px; }
-        select, input { padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; }
-        
-        .btn {
-            padding: 8px 16px; border: 2px solid var(--ink); background: var(--white);
-            font-weight: bold; font-size: 11px; text-transform: uppercase;
-            box-shadow: 2px 2px 0px rgba(0,0,0,0.2); transition: transform 0.1s;
+        #status-bar {
+            background: rgba(0,0,0,0.3); text-align: center; 
+            padding: 4px; font-size: 11px; font-weight: 600; 
+            letter-spacing: 1px; text-transform: uppercase; color: #94a3b8;
         }
-        .btn:active { transform: translate(1px, 1px); box-shadow: none; }
-        .btn-primary { background: #2ecc71; color: white; border-color: #27ae60; }
-        .btn-danger { background: #e74c3c; color: white; border-color: #c0392b; }
 
+        .toolbar { 
+            display: flex; flex-wrap: wrap; gap: 15px; 
+            padding: 10px 20px; justify-content: center; align-items: flex-end; 
+        }
+        
+        .group { display: flex; flex-direction: column; gap: 4px; }
+        .label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px; }
+        
+        /* Modern Inputs */
+        select, input { 
+            background: #334155; color: white; border: 1px solid #475569;
+            padding: 6px 10px; border-radius: 6px; font-size: 12px; outline: none; cursor: pointer !important;
+        }
+        select:focus, input:focus { border-color: var(--primary); }
+
+        /* Modern Buttons */
+        .btn {
+            padding: 8px 16px; border: none; border-radius: 6px;
+            font-weight: 600; font-size: 12px; cursor: pointer !important;
+            transition: all 0.2s; color: white; background: #475569;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .btn:hover { filter: brightness(110%); transform: translateY(-1px); }
+        .btn:active { transform: translateY(1px); }
+        
+        .btn-primary { background: var(--success); color: #000; }
+        .btn-action { background: var(--primary); }
+        .btn-danger { background: var(--accent); }
+        
         /* --- VIEWER --- */
         #score-container { 
-            position: relative; margin-top: 140px; 
+            position: relative; margin-top: 160px; 
             display: flex; flex-direction: column; align-items: center; 
-            min-height: 100vh; transition: margin-top 0.4s ease; 
+            min-height: 100vh; transition: margin-top 0.5s ease; 
         }
         
         canvas { 
-            box-shadow: 0 5px 20px rgba(0,0,0,0.15); margin-bottom: 20px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15); margin-bottom: 30px; 
             max-width: 96%; height: auto; background: white; pointer-events: none; 
         }
 
         /* --- OVERLAYS --- */
         #cursor-line {
             position: absolute; left: 0; width: 100%; height: 5px;
-            background: var(--accent); 
-            z-index: 999999; 
+            background: var(--accent); z-index: 999999; 
             display: none; pointer-events: none;
-            box-shadow: 0 0 0 2px white, 0 4px 10px rgba(0,0,0,0.5);
+            box-shadow: 0 0 0 2px white, 0 4px 12px rgba(0,0,0,0.4);
             border-radius: 2px;
         }
 
         #info-bubble {
-            position: absolute; left: 50%; bottom: -45px; transform: translateX(-50%);
-            background: var(--ink); color: white; padding: 5px 14px;
-            font-size: 13px; font-weight: bold; border-radius: 20px;
+            position: absolute; left: 50%; bottom: -50px; transform: translateX(-50%);
+            background: var(--panel-bg); color: white; padding: 6px 16px;
+            font-size: 14px; font-weight: 700; border-radius: 30px;
             white-space: nowrap; pointer-events: none;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 2px solid white;
+            transition: transform 0.1s;
         }
+        #info-bubble.count-in { background: var(--accent); transform: translateX(-50%) scale(1.2); }
 
         .sys-box { position: absolute; left: 0; width: 100%; border: 3px solid #000; pointer-events: none; opacity: 0.7; z-index: 100; }
         
         .meas-box { 
             position: absolute; top: 0; height: 100%; 
-            border-right: var(--measure-border); 
-            box-sizing: border-box; 
-            pointer-events: none; 
-            z-index: 50;
+            border-right: var(--measure-border); box-sizing: border-box; 
+            pointer-events: none; z-index: 50;
         }
         .meas-box.active { 
-            background: var(--highlight) !important; 
-            opacity: 1 !important; 
-            border-right: 3px solid var(--ink) !important;
+            background: var(--highlight) !important; opacity: 1 !important; 
+            border-right: 3px solid #000 !important;
         }
 
         /* --- FAB BUTTONS --- */
         .fab {
-            position: fixed; bottom: 30px; width: 60px; height: 60px;
-            border-radius: 50%; background: var(--ink); color: white;
+            position: fixed; bottom: 30px; width: 65px; height: 65px;
+            border-radius: 50%; background: var(--panel-bg); color: white;
             display: none; align-items: center; justify-content: center;
-            font-weight: bold; cursor: pointer !important; z-index: 2000;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3); border: 2px solid white;
+            font-weight: 900; font-size: 12px; cursor: pointer !important; z-index: 2000;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4); border: 2px solid white;
+            transition: transform 0.2s;
         }
-        #stop-fab { right: 20px; background: var(--accent); }
-        #pause-fab { left: 20px; background: #f1c40f; color: black; }
+        .fab:active { transform: scale(0.95); }
+        #stop-fab { right: 30px; background: var(--accent); }
+        #pause-fab { left: 30px; background: #fbbf24; color: black; }
 
         body.mode-play #ui-bar { transform: translateY(-100%); }
-        body.mode-play #score-container { margin-top: 20px; } 
+        body.mode-play #score-container { margin-top: 40px; } 
         body.mode-clean .sys-box, body.mode-clean .meas-box { opacity: 0 !important; }
     </style>
 </head>
 <body>
 
 <nav id="ui-bar">
-    <div style="background:var(--ink); color:white; text-align:center; padding:4px; font-size:10px; letter-spacing:1px;" id="status-text">Klaar voor start</div>
+    <div id="status-bar">Gereed</div>
     <div class="toolbar">
         <div class="group">
             <span class="label">Bibliotheek</span>
             <div style="display:flex; gap:5px;">
-                <select id="lib-select" style="width:100px;"><option value="">-- Laden --</option></select>
-                <button id="btn-del" class="btn btn-danger" style="padding:5px 8px;">X</button>
+                <select id="lib-select" style="width:110px;"><option value="">-- Laden --</option></select>
+                <button id="btn-del" class="btn btn-danger" title="Verwijder">✕</button>
             </div>
         </div>
         <div class="group">
-            <span class="label">PDF</span>
-            <input type="file" id="file-upload" accept="application/pdf" style="width:110px;">
+            <span class="label">PDF & Score</span>
+            <input type="file" id="file-upload" accept="application/pdf" style="width:100px; color:transparent;">
         </div>
         <div class="group">
-            <span class="label">BPM / Maat</span>
+            <span class="label">Tempo</span>
             <div style="display:flex; gap:5px;">
-                <input type="number" id="inp-bpm" value="120" style="width:40px;">
+                <input type="number" id="inp-bpm" value="120" style="width:45px; text-align:center;">
                 <select id="inp-ts"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select>
             </div>
         </div>
         <div class="group">
-            <span class="label">Acties</span>
+            <span class="label">Controls</span>
             <div style="display:flex; gap:5px;">
                 <button id="btn-undo" class="btn">Undo</button>
-                <button id="btn-ok" class="btn" style="display:none; border-color:blue; color:blue;">OK</button>
-                <button id="btn-save" class="btn" style="background:#3498db; color:white;">Save</button>
-                <button id="btn-play" class="btn btn-primary">Start</button>
+                <button id="btn-ok" class="btn btn-action" style="display:none;">Volgende Regel</button>
+                <button id="btn-save" class="btn btn-action">Save</button>
+                <button id="btn-play" class="btn btn-primary" style="padding: 8px 24px;">START</button>
             </div>
         </div>
         <div class="group">
-            <span class="label">Opties</span>
+            <span class="label">Instellingen</span>
             <div style="display:flex; gap:5px;">
-                <select id="inp-click"><option value="on">Klik Aan</option><option value="off">Klik Uit</option></select>
+                <select id="inp-click"><option value="on">Klik AAN</option><option value="off">Klik UIT</option></select>
                 <select id="inp-view"><option value="guide">Guide</option><option value="clean">Clean</option></select>
             </div>
         </div>
@@ -167,18 +191,17 @@
 
 <script>
     const DB = {
-        name: "ConductorProDB_v78",
+        name: "ConductorProDB_v79",
         version: 1,
         db: null,
         async init() {
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 const req = indexedDB.open(this.name, this.version);
                 req.onupgradeneeded = (e) => {
                     const db = e.target.result;
                     if (!db.objectStoreNames.contains('scores')) db.createObjectStore('scores', { keyPath: 'name' });
                 };
                 req.onsuccess = (e) => { this.db = e.target.result; resolve(); };
-                req.onerror = (e) => reject(e);
             });
         },
         async save(name, pdfBlob, data) {
@@ -189,10 +212,9 @@
             });
         },
         async load(name) {
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 const tx = this.db.transaction('scores', 'readonly');
                 tx.objectStore('scores').get(name).onsuccess = (e) => resolve(e.target.result);
-                tx.onerror = (e) => reject(e);
             });
         },
         async getAllKeys() {
@@ -223,7 +245,7 @@
             const gain = this.ctx.createGain();
             osc.connect(gain); gain.connect(this.ctx.destination);
             osc.frequency.value = isDownbeat ? 1000 : 600;
-            gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+            gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
             osc.start(); osc.stop(this.ctx.currentTime + 0.1);
         }
@@ -234,7 +256,7 @@
         state: 'IDLE', isRunning: false, isPaused: false,
         ui: {
             container: document.getElementById('score-container'),
-            status: document.getElementById('status-text'),
+            status: document.getElementById('status-bar'),
             libSelect: document.getElementById('lib-select'),
             line: document.getElementById('cursor-line'),
             bubble: document.getElementById('info-bubble')
@@ -249,7 +271,7 @@
 
         setupEvents() {
             document.getElementById('file-upload').onchange = (e) => this.handleUpload(e);
-            document.getElementById('btn-play').onclick = () => this.play();
+            document.getElementById('btn-play').onclick = () => this.playSequence();
             document.getElementById('stop-fab').onclick = () => this.stop();
             document.getElementById('pause-fab').onclick = () => { this.isPaused = !this.isPaused; };
             document.getElementById('btn-save').onclick = () => this.handleSave();
@@ -278,7 +300,7 @@
         },
 
         async renderPDF(blob) {
-            this.setStatus("Renderen...");
+            this.setStatus("Even geduld...");
             const arrayBuffer = await blob.arrayBuffer();
             this.pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
             this.ui.container.querySelectorAll('canvas').forEach(c => c.remove());
@@ -291,22 +313,20 @@
                 await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
                 this.ui.container.appendChild(canvas);
             }
-            this.state = 'MARKING_TOP'; this.setStatus("Klik BOVENKANT regel");
+            this.state = 'MARKING_TOP'; this.setStatus("Stap 1: Klik BOVENKANT van de eerste regel");
         },
 
         onEditorClick(yPct, xPct) {
             if (this.state === 'MARKING_TOP') {
                 this.tempSys = { top: yPct, bottom: 0, measures: [], ui: [], lastX: 0, previewBlock: null };
-                this.state = 'MARKING_BOTTOM'; this.setStatus("Klik ONDERKANT regel");
+                this.state = 'MARKING_BOTTOM'; this.setStatus("Stap 2: Klik ONDERKANT van de regel");
             } 
             else if (this.state === 'MARKING_BOTTOM') {
                 this.tempSys.bottom = yPct;
                 this.drawSystemBox(this.tempSys);
                 this.state = 'MARKING_MEASURES';
-                this.setStatus("Klik maatstrepen. Druk OK.");
+                this.setStatus("Stap 3: Klik maatstrepen. Druk 'Volgende Regel' als je klaar bent.");
                 document.getElementById('btn-ok').style.display = 'inline-block';
-                
-                // LIVE ZEBRA: Start direct met het tekenen van de "rest" van de regel
                 this.updateLiveZebra(this.tempSys, 0); 
             }
             else if (this.state === 'MARKING_MEASURES') {
@@ -323,13 +343,8 @@
 
         updateLiveZebra(sys, currentClickX) {
             const sysBox = sys.ui[0];
+            if (sys.previewBlock) sys.previewBlock.style.width = (currentClickX - sys.lastX) + '%';
             
-            // 1. Maak vorig preview block definitief
-            if (sys.previewBlock) {
-                sys.previewBlock.style.width = (currentClickX - sys.lastX) + '%';
-            }
-
-            // 2. Maak NIEUW preview block voor de rest (tot 100%)
             const count = sys.measures.length; 
             const isNextEven = (count % 2 === 1); 
             
@@ -340,17 +355,15 @@
             nextBlock.style.background = isNextEven ? 'var(--zebra-even)' : 'var(--zebra-odd)';
             
             sysBox.appendChild(nextBlock);
-            
             sys.lastX = currentClickX;
             sys.previewBlock = nextBlock;
         },
 
         commitSystem() {
             this.tempSys.measures.sort((a,b) => a - b);
-            // Laatste blok staat al goed door updateLiveZebra
             this.systems.push(this.tempSys);
             this.tempSys = null;
-            this.state = 'MARKING_TOP'; this.setStatus("Regel opgeslagen.");
+            this.state = 'MARKING_TOP'; this.setStatus("Regel opgeslagen. Klik bovenkant volgende regel.");
             document.getElementById('btn-ok').style.display = 'none';
         },
 
@@ -365,15 +378,15 @@
             } else if (this.systems.length > 0) {
                 const sys = this.systems.pop();
                 sys.ui.forEach(el => el.remove());
-                this.state = 'MARKING_TOP'; this.setStatus("Regel verwijderd.");
+                this.state = 'MARKING_TOP'; this.setStatus("Laatste regel verwijderd.");
             }
         },
 
         clearOverlays() { document.querySelectorAll('.sys-box, .meas-box').forEach(e => e.remove()); },
 
-        // --- PLAYBACK ---
-        async play() {
-            if (!this.systems.length) return alert("Geen data!");
+        // --- PLAYBACK SEQUENCE ---
+        async playSequence() {
+            if (!this.systems.length) return alert("Geen muziek om te spelen!");
             this.isRunning = true; this.isPaused = false;
             AudioEngine.resume();
             
@@ -390,11 +403,49 @@
 
             this.preparePlaybackVisuals();
 
+            // 1. HET AFTELLEN (COUNT-IN)
+            // Scroll vast naar eerste regel
+            this.ui.line.style.top = this.systems[0].top + '%';
+            this.ui.line.scrollIntoView({block: 'center', behavior: 'smooth'});
+            
+            await this.doCountIn(bpm, ts);
+
+            // 2. START MUZIEK
             for (let i = 0; i < this.systems.length; i++) {
                 if (!this.isRunning) break;
                 await this.playSystemSequence(this.systems[i], i, bpm, ts, useClick);
             }
             this.stop();
+        },
+
+        doCountIn(bpm, ts) {
+            return new Promise(resolve => {
+                if(!this.isRunning) return resolve();
+                
+                const msPerBeat = (60 / bpm) * 1000;
+                let count = 0;
+                this.ui.bubble.classList.add('count-in');
+                
+                const tick = () => {
+                    if(!this.isRunning) return resolve();
+                    count++;
+                    const isDownbeat = (count === 1);
+                    
+                    // Visueel & Audio
+                    this.ui.bubble.innerText = `AFTEL: ${count} / ${ts}`;
+                    AudioEngine.beep(isDownbeat); // Altijd geluid bij aftellen
+                    
+                    if (count < ts) {
+                        setTimeout(tick, msPerBeat);
+                    } else {
+                        setTimeout(() => {
+                            this.ui.bubble.classList.remove('count-in');
+                            resolve();
+                        }, msPerBeat);
+                    }
+                };
+                tick();
+            });
         },
 
         preparePlaybackVisuals() {
@@ -403,7 +454,6 @@
                 const sysDiv = document.createElement('div'); sysDiv.className = 'sys-box';
                 sysDiv.style.top = sys.top + '%'; sysDiv.style.height = (sys.bottom - sys.top) + '%';
                 this.ui.container.appendChild(sysDiv);
-                
                 const coords = [0, ...sys.measures, 100];
                 sys.playbackBlocks = [];
                 for(let i=0; i<coords.length-1; i++) {
@@ -483,10 +533,9 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         },
 
-        // --- STORAGE ---
         async handleSave() {
             if (!this.currentPdfBlob || !this.systems.length) return alert("Niets om op te slaan.");
-            const name = prompt("Naam:");
+            const name = prompt("Naam van het stuk:");
             if (!name) return;
             const data = {
                 bpm: document.getElementById('inp-bpm').value,
@@ -513,7 +562,6 @@
                 record.data.systems.forEach(s => {
                     this.tempSys = { top: s.top, bottom: s.bottom, measures: s.measures, ui: [] };
                     this.drawSystemBox(this.tempSys);
-                    // Force Zebra redraw
                     let px = 0;
                     [...s.measures, 100].forEach((mx, i) => {
                          const div = document.createElement('div'); div.className = 'meas-box';
