@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Conductor v63 - Vertical Fix & Storage</title>
+    <title>The Conductor v64 - Label Fix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -46,7 +46,6 @@
         #beat-bubble { position: absolute; left: 50%; bottom: -40px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 6px 16px; font-size: 12px; font-weight: 900; border: 2px solid #fff; white-space: nowrap; }
 
         .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--ink); pointer-events: none; z-index: 1000; box-sizing: border-box; }
-        /* CRUCIALE FIX: Maatblokken moeten absoluut binnen de relatieve box staan */
         .measure-block { position: absolute; height: 100%; top: 0; z-index: 500; pointer-events: none; }
         .label-tag { position: absolute; right: 10px; background: var(--white); color: var(--ink); border: 2px solid var(--ink); padding: 4px 8px; font-weight: 900; font-size: 10px; z-index: 2000; transform: translateY(-50%); }
 
@@ -61,7 +60,7 @@
 <body id="main-body">
 
 <header id="master-header">
-    <div class="status-bar" id="step-info">Universal Conductor v63</div>
+    <div class="status-bar" id="step-info">Universal Conductor v64</div>
     <div class="nav-container">
         <div class="control-group">
             <span class="input-label">Bibliotheek</span>
@@ -88,7 +87,7 @@
         <div style="display:flex; gap:6px;">
             <button id="save-btn" class="btn" style="background:#3498db; color:white;">Save</button>
             <button id="undo-btn" class="btn">Undo</button>
-            <button id="confirm-btn" class="btn" style="display:none; background:var(--ink); color:#fff;">OK</button>
+            <button id="confirm-btn" class="btn" style="display:none; background:var(--ink); color:#fff;">OK (<span id="m-count">1</span>)</button>
             <button id="start-btn" class="btn" style="background:#2ecc71;">START</button>
         </div>
     </div>
@@ -160,6 +159,7 @@
                 this.createUI(y);
                 this.state = 'MEASURES';
                 document.getElementById('confirm-btn').style.display = 'inline-block';
+                this.refreshLabel();
             } else if (this.state === 'MEASURES') {
                 this.addMeasure(x);
             }
@@ -186,6 +186,7 @@
             this.currentSystem.blocks.push(b);
             this.currentSystem.measures.push(x);
             this.visualHistory.push({ type: 'MEASURE', el: b });
+            this.refreshLabel();
         },
 
         confirmSystem() {
@@ -198,6 +199,7 @@
             this.systems.push(this.currentSystem);
             this.currentSystem = null; this.visualHistory = []; this.state = 'TOP';
             document.getElementById('confirm-btn').style.display = 'none';
+            this.updateStatus("Regel OK. Volgende?");
         },
 
         undo() {
@@ -209,6 +211,15 @@
                 item.el.remove(); item.lb.remove(); this.currentSystem = null; this.state = 'TOP';
                 document.getElementById('confirm-btn').style.display = 'none';
             }
+            this.refreshLabel();
+        },
+
+        refreshLabel() {
+            if (!this.currentSystem) return;
+            const mCount = this.currentSystem.measures.length + 1;
+            const ts = parseInt(document.getElementById('ts-input').value);
+            document.getElementById('m-count').innerText = mCount;
+            this.currentSystem.labelEl.innerText = `R${this.systems.length + 1}: ${mCount}M | ${mCount * ts}B`;
         },
 
         saveToLib() {
@@ -220,7 +231,7 @@
                 ts: document.getElementById('ts-input').value,
                 systems: this.systems.map(s => ({ top: s.top, bottom: s.bottom, measures: s.measures }))
             };
-            localStorage.setItem('conductor_v63_' + name, JSON.stringify(data));
+            localStorage.setItem('conductor_v64_' + name, JSON.stringify(data));
             this.refreshLibrary();
         },
 
@@ -229,9 +240,9 @@
             select.innerHTML = '<option value="">-- Kies --</option>';
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key.startsWith('conductor_v63_')) {
+                if (key.startsWith('conductor_v64_')) {
                     const opt = document.createElement('option');
-                    opt.value = key; opt.innerText = key.replace('conductor_v63_', '');
+                    opt.value = key; opt.innerText = key.replace('conductor_v64_', '');
                     select.appendChild(opt);
                 }
             }
