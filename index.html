@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Conductor App v66 - Auto-Scroll Fix</title>
+    <title>The Conductor App v68 - Metronome Restored</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -12,6 +12,7 @@
             --measure-light: rgba(0, 0, 0, 0.05); 
             --measure-dark: rgba(0, 0, 0, 0.15); 
             --active-highlight: rgba(0, 0, 0, 0.35);
+            --accent: #e74c3c;
         }
 
         body { font-family: 'Georgia', serif; margin: 0; background: #e9ecef; color: var(--ink); overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
@@ -35,6 +36,7 @@
             box-shadow: 4px 4px 0px var(--ink); transition: all 0.1s;
         }
         .btn:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0px var(--ink); }
+        .btn-danger { background: var(--accent); color: white; border-color: #c0392b; }
 
         #content-wrapper { padding-top: 170px; transition: padding 0.5s ease; }
         body.is-playing #content-wrapper { padding-top: 40px; }
@@ -42,45 +44,47 @@
         #viewer-container { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; }
         canvas { box-shadow: 0 10px 40px rgba(0,0,0,0.1); margin-bottom: 30px; width: 98% !important; max-width: 1200px; height: auto !important; background: white; }
 
-        #scanning-line { position: absolute; left: 0; width: 100%; height: 4px; background: #e74c3c; z-index: 110000; display: none; pointer-events: none; box-shadow: 0 0 10px rgba(231, 76, 60, 0.5); }
-        #beat-bubble { position: absolute; left: 50%; bottom: -40px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 6px 16px; font-size: 12px; font-weight: 900; border: 2px solid #fff; white-space: nowrap; }
+        #scanning-line { position: absolute; left: 0; width: 100%; height: 4px; background: var(--accent); z-index: 110000; display: none; pointer-events: none; box-shadow: 0 0 12px rgba(231, 76, 60, 0.6); }
+        #beat-bubble { position: absolute; left: 50%; bottom: -45px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 6px 16px; font-size: 13px; font-weight: 900; border: 2px solid #fff; white-space: nowrap; border-radius: 4px; }
 
         .system-box { position: absolute; left: 0; width: 100%; border: 2px solid var(--ink); pointer-events: none; z-index: 1000; box-sizing: border-box; }
         .measure-block { position: absolute; height: 100%; top: 0; z-index: 500; pointer-events: none; }
         .label-tag { position: absolute; right: 10px; background: var(--white); color: var(--ink); border: 2px solid var(--ink); padding: 4px 8px; font-weight: 900; font-size: 10px; z-index: 2000; transform: translateY(-50%); }
 
-        .orb-btn { position: fixed; bottom: 30px; width: 65px; height: 65px; border-radius: 50%; border: 4px solid var(--ink); display: none; align-items: center; justify-content: center; cursor: pointer; z-index: 120000; font-weight: 900; font-size: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transition: transform 0.1s; }
-        .orb-btn:active { transform: scale(0.9); }
+        .orb-btn { position: fixed; bottom: 30px; width: 65px; height: 65px; border-radius: 50%; border: 4px solid var(--ink); display: none; align-items: center; justify-content: center; cursor: pointer; z-index: 120000; font-weight: 900; font-size: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         #pause-btn { left: 30px; background: var(--white); color: var(--ink); }
         #stop-btn { right: 30px; background: var(--ink); color: var(--white); }
 
-        body.play-guide .measure-block.active { background: var(--active-highlight) !important; opacity: 1 !important; }
+        body.play-guide .measure-block.active { background: var(--active-highlight) !important; }
         body.play-clean .system-box, body.play-clean .label-tag, body.play-clean .measure-block { opacity: 0 !important; }
     </style>
 </head>
 <body>
 
 <header id="master-header">
-    <div class="status-bar" id="step-info">Conductor App v66 - Scroll Fix</div>
+    <div class="status-bar" id="step-info">Conductor v68 - Metronome Fix</div>
     <div class="nav-container">
         <div class="control-group">
-            <span class="input-label">App Bibliotheek</span>
-            <select id="library-select" style="padding:4px;"><option value="">-- Geladen Scores --</option></select>
-        </div>
-        <div class="control-group">
-            <span class="input-label">Nieuwe PDF</span>
-            <input type="file" id="upload-pdf" style="font-size: 9px; width: 110px;">
-        </div>
-        <div class="control-group">
-            <span class="input-label">BPM/Maat</span>
+            <span class="input-label">Bibliotheek</span>
             <div style="display:flex; gap:4px;">
-                <input type="number" id="bpm-input" value="120" style="width:35px; padding:4px;">
-                <select id="ts-input" style="padding:4px;"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option></select>
+                <select id="library-select" style="padding:4px;"><option value="">-- Scores --</option></select>
+                <button id="del-btn" class="btn btn-danger" style="padding:4px 8px;">X</button>
             </div>
         </div>
         <div class="control-group">
-            <span class="input-label">Glide</span>
-            <input type="range" id="glide-input" min="0" max="40" value="15" style="width: 45px;">
+            <span class="input-label">PDF / BPM / Maat</span>
+            <div style="display:flex; gap:4px; align-items:center;">
+                <input type="file" id="upload-pdf" style="font-size: 9px; width: 100px;">
+                <input type="number" id="bpm-input" value="120" style="width:35px; padding:4px;">
+                <select id="ts-input" style="padding:4px;"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select>
+            </div>
+        </div>
+        <div class="control-group">
+            <span class="input-label">Mode & Glide</span>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <select id="play-mode" style="padding:4px;"><option value="guide">Guide</option><option value="clean">Clean</option></select>
+                <input type="range" id="glide-input" min="0" max="40" value="15" style="width: 45px;">
+            </div>
         </div>
         <div style="display:flex; gap:6px;">
             <button id="save-btn" class="btn" style="background:#3498db; color:white;">SAVE</button>
@@ -101,7 +105,7 @@
 <div id="stop-btn" class="orb-btn">STOP</div>
 
 <script>
-    const DB_NAME = "ConductorAppDB";
+    const DB_NAME = "ConductorAppDB_v68";
     const DB_VERSION = 1;
     let db;
 
@@ -137,6 +141,7 @@
             document.getElementById('stop-btn').onclick = () => this.stop();
             document.getElementById('pause-btn').onclick = () => this.togglePause();
             document.getElementById('save-btn').onclick = () => this.saveToApp();
+            document.getElementById('del-btn').onclick = () => this.deleteFromApp();
             document.getElementById('library-select').onchange = (e) => this.loadFromApp(e.target.value);
         },
 
@@ -147,13 +152,13 @@
         },
 
         async loadPDF(data) {
-            this.updateStatus("Laden...");
+            this.updateStatus("Rendering PDF...");
             this.pdf = await pdfjsLib.getDocument({ data: data }).promise;
             const container = document.getElementById('viewer-container');
             container.querySelectorAll('canvas').forEach(c => c.remove());
             for (let i = 1; i <= this.pdf.numPages; i++) {
                 const page = await this.pdf.getPage(i);
-                const viewport = page.getViewport({ scale: 2.0 });
+                const viewport = page.getViewport({ scale: 2.2 });
                 const canvas = document.createElement('canvas');
                 canvas.width = viewport.width; canvas.height = viewport.height;
                 await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
@@ -241,7 +246,7 @@
 
         saveToApp() {
             if (!this.systems.length || !this.pdfData) return alert("Upload PDF en markeer eerst!");
-            const name = prompt("Geef deze partituur een naam:");
+            const name = prompt("Naam van deze partituur:");
             if (!name) return;
             const transaction = db.transaction(["scores"], "readwrite");
             const score = {
@@ -253,12 +258,20 @@
                 systems: this.systems.map(s => ({ top: s.top, bottom: s.bottom, measures: s.measures }))
             };
             transaction.objectStore("scores").put(score);
-            transaction.oncomplete = () => { alert("Volledig opgeslagen!"); this.refreshLibrary(); };
+            transaction.oncomplete = () => { alert("Opgeslagen!"); this.refreshLibrary(); };
+        },
+
+        deleteFromApp() {
+            const name = document.getElementById('library-select').value;
+            if (!name || !confirm(`Weet je zeker dat je '${name}' wilt verwijderen?`)) return;
+            const transaction = db.transaction(["scores"], "readwrite");
+            transaction.objectStore("scores").delete(name);
+            transaction.oncomplete = () => { location.reload(); };
         },
 
         refreshLibrary() {
             const select = document.getElementById('library-select');
-            select.innerHTML = '<option value="">-- Geladen Scores --</option>';
+            select.innerHTML = '<option value="">-- Scores --</option>';
             const transaction = db.transaction(["scores"], "readonly");
             transaction.objectStore("scores").openCursor().onsuccess = (e) => {
                 const cursor = e.target.result;
@@ -294,7 +307,9 @@
         async start() {
             if (!this.systems.length) return;
             this.isRunning = true; this.isPaused = false;
-            document.body.classList.add('is-playing');
+            this.lastBeat = -1; // Reset beat tracking
+            const mode = document.getElementById('play-mode').value;
+            document.body.classList.add('is-playing', 'play-' + mode);
             document.getElementById('master-header').style.transform = 'translateY(-100%)';
             document.getElementById('pause-btn').style.display = 'flex';
             document.getElementById('stop-btn').style.display = 'flex';
@@ -303,6 +318,10 @@
             const bpm = parseInt(document.getElementById('bpm-input').value);
             const ts = parseInt(document.getElementById('ts-input').value);
             const glide = parseInt(document.getElementById('glide-input').value) / 100;
+
+            // Audio initialisatie
+            if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (this.audioCtx.state === 'suspended') await this.audioCtx.resume();
 
             for (let i = 0; i < this.systems.length; i++) {
                 if (!this.isRunning) break;
@@ -323,20 +342,28 @@
                     if (this.isPaused) { startTime += (performance.now() - now); requestAnimationFrame(tick); return; }
                     const el = (now - startTime) / 1000;
                     const pr = Math.min(el / tD, 0.999);
-                    const cB = Math.floor(pr * (nM * ts));
+                    const totalBeats = nM * ts;
+                    const currentTotalBeat = Math.floor(pr * totalBeats);
 
-                    if (cB !== this.lastBeat) { this.click(cB % ts === 0); this.lastBeat = cB; document.getElementById('beat-bubble').innerText = `M ${Math.floor(cB/ts)+1} | B ${(cB%ts)+1}`; }
-                    sys.blocks.forEach((b, k) => b.classList.toggle('active', k === Math.floor(cB/ts)));
+                    // METRONOOM & BUBBLE UPDATE
+                    if (currentTotalBeat !== this.lastBeat) {
+                        const beatInMeasure = (currentTotalBeat % ts);
+                        this.click(beatInMeasure === 0); // Accent op de eerste tel
+                        this.lastBeat = currentTotalBeat;
+                        document.getElementById('beat-bubble').innerText = `M ${Math.floor(currentTotalBeat/ts)+1} | B ${beatInMeasure+1}`;
+                    }
 
+                    // BLOK HIGHLIGHT
+                    sys.blocks.forEach((b, k) => b.classList.toggle('active', k === Math.floor(currentTotalBeat/ts)));
+
+                    // LIJN BEWEGING
                     let y = (el <= sD) ? sys.top + (el * ((sys.bottom - sys.top) / sD)) : sys.bottom + (this.systems[idx+1].top - sys.bottom) * ((el - sD) / trD);
                     line.style.top = y + '%';
 
-                    // AUTO-SCROLL FIX: Houd de lijn op 40% van de viewport hoogte
+                    // AUTO-SCROLL
                     const lineRect = line.getBoundingClientRect();
                     const targetPos = window.innerHeight * 0.40;
-                    if (lineRect.top > targetPos) {
-                        window.scrollBy(0, lineRect.top - targetPos);
-                    }
+                    if (lineRect.top > targetPos) window.scrollBy(0, lineRect.top - targetPos);
 
                     if (el < tD) requestAnimationFrame(tick); else res();
                 };
@@ -344,17 +371,18 @@
             });
         },
 
-        click(h) {
-            if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const o = this.audioCtx.createOscillator(); const g = this.audioCtx.createGain();
+        click(isFirstBeat) {
+            const o = this.audioCtx.createOscillator();
+            const g = this.audioCtx.createGain();
             o.connect(g); g.connect(this.audioCtx.destination);
-            o.frequency.value = h ? 1000 : 700; g.gain.setValueAtTime(0.1, this.audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.05);
-            o.start(); o.stop(this.audioCtx.currentTime + 0.05);
+            o.frequency.value = isFirstBeat ? 1200 : 800; // Hoog voor tel 1, lager voor de rest
+            g.gain.setValueAtTime(0.15, this.audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.06);
+            o.start(); o.stop(this.audioCtx.currentTime + 0.06);
         },
 
         togglePause() { this.isPaused = !this.isPaused; document.getElementById('pause-btn').innerText = this.isPaused ? "GA" : "PAUZE"; },
-        stop() { this.isRunning = false; document.body.classList.remove('is-playing'); document.getElementById('master-header').style.transform = 'translateY(0)'; document.getElementById('pause-btn').style.display = 'none'; document.getElementById('stop-btn').style.display = 'none'; document.getElementById('scanning-line').style.display = 'none'; window.scrollTo(0,0); },
+        stop() { this.isRunning = false; document.body.classList.remove('is-playing', 'play-guide', 'play-clean'); document.getElementById('master-header').style.transform = 'translateY(0)'; document.getElementById('pause-btn').style.display = 'none'; document.getElementById('stop-btn').style.display = 'none'; document.getElementById('scanning-line').style.display = 'none'; window.scrollTo(0,0); },
         updateStatus(m) { document.getElementById('step-info').innerText = m; }
     };
     Engine.init();
