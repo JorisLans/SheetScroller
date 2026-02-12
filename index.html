@@ -3,33 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Conductor Pro v82 - Yellow/Orange Zebra</title>
+    <title>Conductor Pro</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e293b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon.png">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
             --ink: #111; --paper: #f4f4f4; --white: #fff;
             --accent: #ff0000; 
+            --highlight: rgba(255, 200, 0, 0.25);
             --ui-bg: rgba(255, 255, 255, 0.98);
-            
-            /* NIEUWE ZEBRA KLEUREN */
-            --zebra-odd: rgba(255, 255, 0, 0.12);   /* Lichtgeel */
-            --zebra-even: rgba(255, 165, 0, 0.18);  /* Lichtoranje */
-            
-            /* Actieve maat (tijdens afspelen) - iets donkerder goud/oranje voor contrast */
-            --highlight: rgba(255, 140, 0, 0.4); 
-            
+            --zebra-odd: rgba(255, 255, 0, 0.12);
+            --zebra-even: rgba(255, 165, 0, 0.18);
             --measure-border: 2px solid #000;
         }
 
-        /* PERMANENT BLACK CURSOR */
         body, html, #score-container, canvas, .sys-box, .meas-box {
-            font-family: 'Segoe UI', sans-serif;
-            margin: 0; background: var(--bg-body); color: var(--text-dark);
+            font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg-body); color: var(--text-dark);
             overflow-x: hidden; user-select: none;
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><line x1="12" y1="0" x2="12" y2="24" stroke="black" stroke-width="2"/><line x1="0" y1="12" x2="24" y2="12" stroke="black" stroke-width="2"/></svg>') 12 12, crosshair !important;
         }
 
-        /* --- PRO HEADER --- */
         #ui-bar {
             position: fixed; top: 0; left: 0; width: 100%; z-index: 2000;
             background: #1e293b; color: #f8fafc;
@@ -38,103 +37,51 @@
             padding-bottom: 10px; cursor: default !important;
         }
         
-        #status-bar {
-            background: rgba(0,0,0,0.3); text-align: center; 
-            padding: 4px; font-size: 11px; font-weight: 600; 
-            letter-spacing: 1px; text-transform: uppercase; color: #94a3b8;
-        }
-
+        #status-bar { background: rgba(0,0,0,0.3); text-align: center; padding: 4px; font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #94a3b8; }
         .toolbar { display: flex; flex-wrap: wrap; gap: 15px; padding: 10px 20px; justify-content: center; align-items: flex-end; }
         .group { display: flex; flex-direction: column; gap: 4px; }
         .label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px; }
         
-        select, input { 
-            background: #334155; color: white; border: 1px solid #475569;
-            padding: 6px 10px; border-radius: 6px; font-size: 12px; outline: none; cursor: pointer !important;
-        }
+        select, input { background: #334155; color: white; border: 1px solid #475569; padding: 6px 10px; border-radius: 6px; font-size: 12px; outline: none; cursor: pointer !important; }
         
-        .btn {
-            padding: 8px 16px; border: none; border-radius: 6px;
-            font-weight: 600; font-size: 12px; cursor: pointer !important;
-            transition: all 0.2s; color: white; background: #475569;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer !important; transition: all 0.2s; color: white; background: #475569; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         .btn:active { transform: translateY(1px); }
         .btn-primary { background: #22c55e; color: #000; }
         .btn-action { background: #3b82f6; }
         .btn-danger { background: #ef4444; }
         
-        /* --- VIEWER --- */
-        #score-container { 
-            position: relative; margin-top: 160px; 
-            display: flex; flex-direction: column; align-items: center; 
-            min-height: 100vh; transition: margin-top 0.5s ease; 
-        }
-        
-        canvas { 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15); margin-bottom: 30px; 
-            max-width: 96%; height: auto; background: white; pointer-events: none; 
-        }
+        #score-container { position: relative; margin-top: 160px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; transition: margin-top 0.5s ease; }
+        canvas { box-shadow: 0 10px 30px rgba(0,0,0,0.15); margin-bottom: 30px; max-width: 96%; height: auto; background: white; pointer-events: none; }
 
-        /* --- OVERLAYS --- */
         #cursor-line {
-            position: absolute; left: 0; width: 100%; height: 5px;
-            background: var(--accent); z-index: 999999; 
-            display: none; pointer-events: none;
-            box-shadow: 0 0 0 2px white, 0 4px 12px rgba(0,0,0,0.4);
-            border-radius: 2px;
-            transition: opacity 0.3s;
+            position: absolute; left: 0; width: 100%; height: 5px; background: var(--accent); z-index: 999999; 
+            display: none; pointer-events: none; box-shadow: 0 0 0 2px white, 0 4px 12px rgba(0,0,0,0.4); border-radius: 2px; transition: opacity 0.3s;
         }
 
         #info-bubble {
-            position: absolute; left: 50%; bottom: -50px; transform: translateX(-50%);
-            background: #1e293b; color: white; padding: 6px 16px;
-            font-size: 14px; font-weight: 700; border-radius: 30px;
-            white-space: nowrap; pointer-events: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 2px solid white;
-            transition: transform 0.1s;
+            position: absolute; left: 50%; bottom: -50px; transform: translateX(-50%); background: #1e293b; color: white; padding: 6px 16px;
+            font-size: 14px; font-weight: 700; border-radius: 30px; white-space: nowrap; pointer-events: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 2px solid white; transition: transform 0.1s;
         }
         #info-bubble.count-in { background: var(--accent); transform: translateX(-50%) scale(1.2); }
 
         .sys-box { position: absolute; left: 0; width: 100%; border: 3px solid #000; pointer-events: none; opacity: 0.7; z-index: 100; }
-        
-        .meas-box { 
-            position: absolute; top: 0; height: 100%; 
-            border-right: var(--measure-border); box-sizing: border-box; 
-            pointer-events: none; z-index: 50;
-        }
-        .meas-box.active { 
-            background: var(--highlight) !important; opacity: 1 !important; 
-            border-right: 3px solid #000 !important;
-        }
+        .meas-box { position: absolute; top: 0; height: 100%; border-right: var(--measure-border); box-sizing: border-box; pointer-events: none; z-index: 50; }
+        .meas-box.active { background: var(--highlight) !important; opacity: 1 !important; border-right: 3px solid #000 !important; }
 
-        /* --- FAB BUTTONS --- */
-        .fab {
-            position: fixed; bottom: 30px; width: 65px; height: 65px;
-            border-radius: 50%; background: #1e293b; color: white;
-            display: none; align-items: center; justify-content: center;
-            font-weight: 900; font-size: 12px; cursor: pointer !important; z-index: 2000;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.4); border: 2px solid white;
-        }
+        .fab { position: fixed; bottom: 30px; width: 65px; height: 65px; border-radius: 50%; background: #1e293b; color: white; display: none; align-items: center; justify-content: center; font-weight: 900; font-size: 12px; cursor: pointer !important; z-index: 2000; box-shadow: 0 10px 25px rgba(0,0,0,0.4); border: 2px solid white; }
         #stop-fab { right: 30px; background: var(--accent); }
         #pause-fab { left: 30px; background: #fbbf24; color: black; }
 
-        /* --- MODES --- */
         body.mode-play #ui-bar { transform: translateY(-100%); }
         body.mode-play #score-container { margin-top: 40px; } 
-        
-        /* CLEAN MODE LOGICA */
-        body.mode-clean .sys-box, 
-        body.mode-clean .meas-box,
-        body.mode-clean #cursor-line { 
-            opacity: 0 !important; 
-        }
+        body.mode-clean .sys-box, body.mode-clean .meas-box, body.mode-clean #cursor-line { opacity: 0 !important; }
     </style>
 </head>
 <body>
 
 <nav id="ui-bar">
-    <div id="status-bar">Gereed - Opslag: Permanent</div>
+    <div id="status-bar">Conductor Pro v83</div>
     <div class="toolbar">
         <div class="group">
             <span class="label">Bibliotheek</span>
@@ -181,52 +128,40 @@
 <div id="stop-fab" class="fab">STOP</div>
 
 <script>
-    // --- DATABASE CONFIGURATIE ---
     const DB_NAME = "Conductor_Master_Library"; 
     
-    const DB = {
-        name: DB_NAME,
-        version: 1,
-        db: null,
-        async init() {
-            return new Promise((resolve) => {
-                const req = indexedDB.open(this.name, this.version);
-                req.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    if (!db.objectStoreNames.contains('scores')) db.createObjectStore('scores', { keyPath: 'name' });
-                };
-                req.onsuccess = (e) => { this.db = e.target.result; resolve(); };
-            });
+    // --- MODULE: WAKE LOCK (Houdt scherm aan) ---
+    const WakeLock = {
+        sentinel: null,
+        async enable() {
+            try {
+                if ('wakeLock' in navigator) {
+                    this.sentinel = await navigator.wakeLock.request('screen');
+                    console.log("Wake Lock active");
+                }
+            } catch (err) { console.warn("Wake Lock failed:", err); }
         },
-        async save(name, pdfBlob, data) {
-            return new Promise((resolve, reject) => {
-                const tx = this.db.transaction('scores', 'readwrite');
-                tx.objectStore('scores').put({ name, pdfBlob, data, timestamp: Date.now() }).onsuccess = () => resolve();
-                tx.onerror = (e) => reject(e);
-            });
-        },
-        async load(name) {
-            return new Promise((resolve) => {
-                const tx = this.db.transaction('scores', 'readonly');
-                tx.objectStore('scores').get(name).onsuccess = (e) => resolve(e.target.result);
-            });
-        },
-        async getAllKeys() {
-            return new Promise((resolve) => {
-                const keys = [];
-                const tx = this.db.transaction('scores', 'readonly');
-                tx.objectStore('scores').openCursor().onsuccess = (e) => {
-                    const cursor = e.target.result;
-                    if (cursor) { keys.push(cursor.key); cursor.continue(); } else resolve(keys);
-                };
-            });
-        },
-        async delete(name) {
-            return new Promise((resolve) => {
-                const tx = this.db.transaction('scores', 'readwrite');
-                tx.objectStore('scores').delete(name).onsuccess = () => resolve();
-            });
+        disable() {
+            if (this.sentinel) {
+                this.sentinel.release();
+                this.sentinel = null;
+            }
         }
+    };
+
+    const DB = {
+        name: DB_NAME, version: 1, db: null,
+        async init() {
+            return new Promise((r) => {
+                const req = indexedDB.open(this.name, this.version);
+                req.onupgradeneeded = (e) => { const db = e.target.result; if (!db.objectStoreNames.contains('scores')) db.createObjectStore('scores', { keyPath: 'name' }); };
+                req.onsuccess = (e) => { this.db = e.target.result; r(); };
+            });
+        },
+        async save(name, pdfBlob, data) { return new Promise((r, j) => { const tx = this.db.transaction('scores', 'readwrite'); tx.objectStore('scores').put({ name, pdfBlob, data, timestamp: Date.now() }).onsuccess = () => r(); tx.onerror = (e) => j(e); }); },
+        async load(name) { return new Promise((r) => { const tx = this.db.transaction('scores', 'readonly'); tx.objectStore('scores').get(name).onsuccess = (e) => r(e.target.result); }); },
+        async getAllKeys() { return new Promise((r) => { const keys = []; const tx = this.db.transaction('scores', 'readonly'); tx.objectStore('scores').openCursor().onsuccess = (e) => { const c = e.target.result; if (c) { keys.push(c.key); c.continue(); } else r(keys); }; }); },
+        async delete(name) { return new Promise((r) => { const tx = this.db.transaction('scores', 'readwrite'); tx.objectStore('scores').delete(name).onsuccess = () => r(); }); }
     };
 
     const AudioEngine = {
@@ -235,32 +170,25 @@
         resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
         beep(isDownbeat) {
             if (!this.ctx) this.init();
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.connect(gain); gain.connect(this.ctx.destination);
-            osc.frequency.value = isDownbeat ? 1000 : 600;
-            gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
-            osc.start(); osc.stop(this.ctx.currentTime + 0.1);
+            const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
+            o.connect(g); g.connect(this.ctx.destination);
+            o.frequency.value = isDownbeat ? 1000 : 600;
+            g.gain.setValueAtTime(0.2, this.ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
+            o.start(); o.stop(this.ctx.currentTime + 0.1);
         }
     };
 
     const App = {
         pdfDoc: null, currentPdfBlob: null, systems: [], tempSys: null,
         state: 'IDLE', isRunning: false, isPaused: false,
-        ui: {
-            container: document.getElementById('score-container'),
-            status: document.getElementById('status-bar'),
-            libSelect: document.getElementById('lib-select'),
-            line: document.getElementById('cursor-line'),
-            bubble: document.getElementById('info-bubble')
-        },
+        ui: { container: document.getElementById('score-container'), status: document.getElementById('status-bar'), libSelect: document.getElementById('lib-select'), line: document.getElementById('cursor-line'), bubble: document.getElementById('info-bubble') },
 
         async start() {
-            await DB.init();
-            this.refreshLibrary();
-            this.setupEvents();
+            await DB.init(); this.refreshLibrary(); this.setupEvents();
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+            // Service Worker Registratie voor PWA
+            if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
         },
 
         setupEvents() {
@@ -271,12 +199,7 @@
             document.getElementById('btn-save').onclick = () => this.handleSave();
             document.getElementById('lib-select').onchange = (e) => this.handleLoad(e.target.value);
             document.getElementById('btn-del').onclick = () => this.handleDelete();
-            
-            document.getElementById('inp-view').onchange = (e) => {
-                if (e.target.value === 'clean') document.body.classList.add('mode-clean');
-                else document.body.classList.remove('mode-clean');
-            };
-
+            document.getElementById('inp-view').onchange = (e) => { if (e.target.value === 'clean') document.body.classList.add('mode-clean'); else document.body.classList.remove('mode-clean'); };
             this.ui.container.onmousedown = (e) => {
                 if (this.isRunning) return;
                 const rect = this.ui.container.getBoundingClientRect();
@@ -284,302 +207,95 @@
                 const xPct = ((e.clientX - rect.left) / rect.width) * 100;
                 this.onEditorClick(yPct, xPct);
             };
-
             document.getElementById('btn-ok').onclick = () => this.commitSystem();
             document.getElementById('btn-undo').onclick = () => this.undo();
         },
 
         setStatus(msg) { this.ui.status.innerText = msg; },
-
-        async handleUpload(e) {
-            const file = e.target.files[0]; if (!file) return;
-            this.currentPdfBlob = file;
-            await this.renderPDF(file);
-            this.systems = []; this.clearOverlays();
-        },
-
+        async handleUpload(e) { const f = e.target.files[0]; if (!f) return; this.currentPdfBlob = f; await this.renderPDF(f); this.systems = []; this.clearOverlays(); },
         async renderPDF(blob) {
-            this.setStatus("Even geduld...");
-            const arrayBuffer = await blob.arrayBuffer();
-            this.pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
+            this.setStatus("Even geduld..."); const ab = await blob.arrayBuffer(); this.pdfDoc = await pdfjsLib.getDocument(ab).promise;
             this.ui.container.querySelectorAll('canvas').forEach(c => c.remove());
-            
-            for (let i = 1; i <= this.pdfDoc.numPages; i++) {
-                const page = await this.pdfDoc.getPage(i);
-                const viewport = page.getViewport({ scale: 2.0 });
-                const canvas = document.createElement('canvas');
-                canvas.width = viewport.width; canvas.height = viewport.height;
-                await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-                this.ui.container.appendChild(canvas);
-            }
-            this.state = 'MARKING_TOP'; this.setStatus("Stap 1: Klik BOVENKANT van de eerste regel");
+            for (let i = 1; i <= this.pdfDoc.numPages; i++) { const p = await this.pdfDoc.getPage(i); const v = p.getViewport({ scale: 2.0 }); const c = document.createElement('canvas'); c.width = v.width; c.height = v.height; await p.render({ canvasContext: c.getContext('2d'), viewport: v }).promise; this.ui.container.appendChild(c); }
+            this.state = 'MARKING_TOP'; this.setStatus("Stap 1: Klik BOVENKANT regel");
         },
 
         onEditorClick(yPct, xPct) {
-            if (this.state === 'MARKING_TOP') {
-                this.tempSys = { top: yPct, bottom: 0, measures: [], ui: [], lastX: 0, previewBlock: null };
-                this.state = 'MARKING_BOTTOM'; this.setStatus("Stap 2: Klik ONDERKANT van de regel");
-            } 
-            else if (this.state === 'MARKING_BOTTOM') {
-                this.tempSys.bottom = yPct;
-                this.drawSystemBox(this.tempSys);
-                this.state = 'MARKING_MEASURES';
-                this.setStatus("Stap 3: Klik maatstrepen. Druk 'Volgende Regel' als je klaar bent.");
-                document.getElementById('btn-ok').style.display = 'inline-block';
-                this.updateLiveZebra(this.tempSys, 0); 
-            }
-            else if (this.state === 'MARKING_MEASURES') {
-                this.tempSys.measures.push(xPct);
-                this.updateLiveZebra(this.tempSys, xPct);
-            }
+            if (this.state === 'MARKING_TOP') { this.tempSys = { top: yPct, bottom: 0, measures: [], ui: [], lastX: 0, previewBlock: null }; this.state = 'MARKING_BOTTOM'; this.setStatus("Stap 2: Klik ONDERKANT regel"); } 
+            else if (this.state === 'MARKING_BOTTOM') { this.tempSys.bottom = yPct; this.drawSystemBox(this.tempSys); this.state = 'MARKING_MEASURES'; this.setStatus("Stap 3: Klik maatstrepen. Druk 'Volgende Regel'."); document.getElementById('btn-ok').style.display = 'inline-block'; this.updateLiveZebra(this.tempSys, 0); }
+            else if (this.state === 'MARKING_MEASURES') { this.tempSys.measures.push(xPct); this.updateLiveZebra(this.tempSys, xPct); }
         },
 
-        drawSystemBox(sys) {
-            const div = document.createElement('div'); div.className = 'sys-box';
-            div.style.top = sys.top + '%'; div.style.height = (sys.bottom - sys.top) + '%';
-            this.ui.container.appendChild(div); sys.ui.push(div);
+        drawSystemBox(sys) { const d = document.createElement('div'); d.className = 'sys-box'; d.style.top = sys.top + '%'; d.style.height = (sys.bottom - sys.top) + '%'; this.ui.container.appendChild(d); sys.ui.push(d); },
+        updateLiveZebra(sys, x) {
+            const b = sys.ui[0]; if (sys.previewBlock) sys.previewBlock.style.width = (x - sys.lastX) + '%';
+            const next = document.createElement('div'); next.className = 'meas-box'; next.style.left = x + '%'; next.style.width = (100 - x) + '%';
+            next.style.background = (sys.measures.length % 2 === 1) ? 'var(--zebra-even)' : 'var(--zebra-odd)';
+            b.appendChild(next); sys.lastX = x; sys.previewBlock = next;
         },
-
-        updateLiveZebra(sys, currentClickX) {
-            const sysBox = sys.ui[0];
-            if (sys.previewBlock) sys.previewBlock.style.width = (currentClickX - sys.lastX) + '%';
-            
-            const count = sys.measures.length; 
-            const isNextEven = (count % 2 === 1); 
-            
-            const nextBlock = document.createElement('div'); 
-            nextBlock.className = 'meas-box';
-            nextBlock.style.left = currentClickX + '%';
-            nextBlock.style.width = (100 - currentClickX) + '%';
-            nextBlock.style.background = isNextEven ? 'var(--zebra-even)' : 'var(--zebra-odd)';
-            
-            sysBox.appendChild(nextBlock);
-            sys.lastX = currentClickX;
-            sys.previewBlock = nextBlock;
-        },
-
-        commitSystem() {
-            this.tempSys.measures.sort((a,b) => a - b);
-            this.systems.push(this.tempSys);
-            this.tempSys = null;
-            this.state = 'MARKING_TOP'; this.setStatus("Regel opgeslagen. Klik bovenkant volgende regel.");
-            document.getElementById('btn-ok').style.display = 'none';
-        },
-
-        undo() {
-            if (this.state === 'MARKING_MEASURES') {
-                const sysBox = this.tempSys.ui[0];
-                while(sysBox.firstChild) sysBox.removeChild(sysBox.firstChild);
-                this.tempSys.measures = [];
-                this.tempSys.lastX = 0;
-                this.tempSys.previewBlock = null;
-                this.updateLiveZebra(this.tempSys, 0);
-            } else if (this.systems.length > 0) {
-                const sys = this.systems.pop();
-                sys.ui.forEach(el => el.remove());
-                this.state = 'MARKING_TOP'; this.setStatus("Laatste regel verwijderd.");
-            }
-        },
-
+        commitSystem() { this.tempSys.measures.sort((a,b)=>a-b); this.systems.push(this.tempSys); this.tempSys = null; this.state = 'MARKING_TOP'; this.setStatus("Regel opgeslagen. Klik bovenkant volgende."); document.getElementById('btn-ok').style.display = 'none'; },
+        undo() { if (this.state === 'MARKING_MEASURES') { const b = this.tempSys.ui[0]; while(b.firstChild) b.removeChild(b.firstChild); this.tempSys.measures = []; this.tempSys.lastX = 0; this.tempSys.previewBlock = null; this.updateLiveZebra(this.tempSys, 0); } else if (this.systems.length > 0) { const s = this.systems.pop(); s.ui.forEach(e => e.remove()); this.state = 'MARKING_TOP'; this.setStatus("Regel verwijderd."); } },
         clearOverlays() { document.querySelectorAll('.sys-box, .meas-box').forEach(e => e.remove()); },
 
-        // --- PLAYBACK ---
         async playSequence() {
-            if (!this.systems.length) return alert("Geen muziek om te spelen!");
+            if (!this.systems.length) return alert("Geen muziek!");
             this.isRunning = true; this.isPaused = false;
             AudioEngine.resume();
-            
+            await WakeLock.enable(); // SCHERM AAN HOUDEN
+
             document.body.classList.add('mode-play');
-            if(document.getElementById('inp-view').value === 'clean') document.body.classList.add('mode-clean');
-            else document.body.classList.remove('mode-clean');
-            
-            this.ui.line.style.display = 'block';
-            document.getElementById('stop-fab').style.display = 'flex';
-            document.getElementById('pause-fab').style.display = 'flex';
+            if(document.getElementById('inp-view').value === 'clean') document.body.classList.add('mode-clean'); else document.body.classList.remove('mode-clean');
+            this.ui.line.style.display = 'block'; document.getElementById('stop-fab').style.display = 'flex'; document.getElementById('pause-fab').style.display = 'flex';
 
-            const bpm = parseInt(document.getElementById('inp-bpm').value);
-            const ts = parseInt(document.getElementById('inp-ts').value);
-            const useClick = document.getElementById('inp-click').value === 'on';
-
+            const bpm = parseInt(document.getElementById('inp-bpm').value); const ts = parseInt(document.getElementById('inp-ts').value); const useClick = document.getElementById('inp-click').value === 'on';
             this.preparePlaybackVisuals();
-
-            this.ui.line.style.top = this.systems[0].top + '%';
-            this.ui.line.scrollIntoView({block: 'center', behavior: 'smooth'});
+            this.ui.line.style.top = this.systems[0].top + '%'; this.ui.line.scrollIntoView({block: 'center', behavior: 'smooth'});
             
             await this.doCountIn(bpm, ts);
-
-            for (let i = 0; i < this.systems.length; i++) {
-                if (!this.isRunning) break;
-                await this.playSystemSequence(this.systems[i], i, bpm, ts, useClick);
-            }
+            for (let i = 0; i < this.systems.length; i++) { if (!this.isRunning) break; await this.playSystemSequence(this.systems[i], i, bpm, ts, useClick); }
             this.stop();
         },
 
         doCountIn(bpm, ts) {
-            return new Promise(resolve => {
-                if(!this.isRunning) return resolve();
-                
-                const msPerBeat = (60 / bpm) * 1000;
-                let count = 0;
-                this.ui.bubble.classList.add('count-in');
-                
-                const tick = () => {
-                    if(!this.isRunning) return resolve();
-                    count++;
-                    const isDownbeat = (count === 1);
-                    
-                    this.ui.bubble.innerText = `AFTEL: ${count} / ${ts}`;
-                    AudioEngine.beep(isDownbeat); 
-                    
-                    if (count < ts) {
-                        setTimeout(tick, msPerBeat);
-                    } else {
-                        setTimeout(() => {
-                            this.ui.bubble.classList.remove('count-in');
-                            resolve();
-                        }, msPerBeat);
-                    }
-                };
-                tick();
-            });
+            return new Promise(res => { if(!this.isRunning) return res(); const ms = (60/bpm)*1000; let c = 0; this.ui.bubble.classList.add('count-in');
+            const t = () => { if(!this.isRunning) return res(); c++; this.ui.bubble.innerText = `AFTEL: ${c} / ${ts}`; AudioEngine.beep(c===1); 
+            if(c<ts) setTimeout(t, ms); else setTimeout(() => { this.ui.bubble.classList.remove('count-in'); res(); }, ms); }; t(); });
         },
 
         preparePlaybackVisuals() {
-            this.clearOverlays(); 
-            this.systems.forEach(sys => {
-                const sysDiv = document.createElement('div'); sysDiv.className = 'sys-box';
-                sysDiv.style.top = sys.top + '%'; sysDiv.style.height = (sys.bottom - sys.top) + '%';
-                this.ui.container.appendChild(sysDiv);
-                const coords = [0, ...sys.measures, 100];
-                sys.playbackBlocks = [];
-                for(let i=0; i<coords.length-1; i++) {
-                    const blk = document.createElement('div'); blk.className = 'meas-box';
-                    blk.style.left = coords[i] + '%'; 
-                    blk.style.width = (coords[i+1] - coords[i]) + '%';
-                    sysDiv.appendChild(blk);
-                    sys.playbackBlocks.push(blk);
-                }
-            });
+            this.clearOverlays(); this.systems.forEach(s => { const d = document.createElement('div'); d.className = 'sys-box'; d.style.top = s.top + '%'; d.style.height = (s.bottom - s.top) + '%'; this.ui.container.appendChild(d);
+            const c = [0, ...s.measures, 100]; s.playbackBlocks = []; for(let i=0; i<c.length-1; i++) { const b = document.createElement('div'); b.className = 'meas-box'; b.style.left = c[i] + '%'; b.style.width = (c[i+1] - c[i]) + '%'; d.appendChild(b); s.playbackBlocks.push(b); } });
         },
 
         playSystemSequence(sys, idx, bpm, ts, useClick) {
-            return new Promise(resolve => {
-                const measureCount = sys.playbackBlocks.length;
-                const totalBeats = measureCount * ts;
-                const totalDuration = (totalBeats / bpm) * 60;
-                
-                const glideRatio = 0.15; 
-                const isLastSys = idx === this.systems.length - 1;
-                const scanTime = isLastSys ? totalDuration : totalDuration * (1 - glideRatio);
-                const glideTime = isLastSys ? 0 : totalDuration * glideRatio;
-
-                let start = performance.now();
-                let lastBeatIdx = -1;
-
+            return new Promise(res => {
+                const measureCount = sys.playbackBlocks.length; const totalBeats = measureCount * ts; const totalDuration = (totalBeats / bpm) * 60;
+                const glideRatio = 0.15; const isLast = idx === this.systems.length - 1; const scanTime = isLast ? totalDuration : totalDuration * (1 - glideRatio); const glideTime = isLast ? 0 : totalDuration * glideRatio;
+                let start = performance.now(); let lastB = -1;
                 const tick = (now) => {
-                    if (!this.isRunning) return resolve();
-                    if (this.isPaused) { start += (performance.now() - now); requestAnimationFrame(tick); return; }
-
-                    const elapsed = (now - start) / 1000;
-                    const pct = Math.min(elapsed / totalDuration, 1);
-                    
-                    const currentBeatTotal = Math.floor(pct * totalBeats);
-                    if (currentBeatTotal !== lastBeatIdx && currentBeatTotal < totalBeats) {
-                        const bInM = (currentBeatTotal % ts) + 1;
-                        const mNum = Math.floor(currentBeatTotal / ts) + 1;
-                        this.ui.bubble.innerText = `M${mNum} . ${bInM}`;
-                        if (useClick) AudioEngine.beep(bInM === 1);
-                        lastBeatIdx = currentBeatTotal;
-                    }
-
-                    const activeMeasureIdx = Math.floor(currentBeatTotal / ts);
-                    sys.playbackBlocks.forEach((b, k) => {
-                        if (k === activeMeasureIdx) b.classList.add('active');
-                        else b.classList.remove('active');
-                    });
-
-                    let y = 0;
-                    if (elapsed <= scanTime) {
-                        const sysPct = elapsed / scanTime;
-                        y = sys.top + (sysPct * (sys.bottom - sys.top));
-                    } else {
-                        const nextSys = this.systems[idx + 1];
-                        const glidePct = (elapsed - scanTime) / glideTime;
-                        y = sys.bottom + (glidePct * (nextSys.top - sys.bottom));
-                    }
+                    if (!this.isRunning) return res(); if (this.isPaused) { start += (performance.now() - now); requestAnimationFrame(tick); return; }
+                    const el = (now - start) / 1000; const pct = Math.min(el / totalDuration, 1);
+                    const curB = Math.floor(pct * totalBeats);
+                    if (curB !== lastB && curB < totalBeats) { const bInM = (curB % ts) + 1; const mNum = Math.floor(curB/ts)+1; this.ui.bubble.innerText = `M${mNum} . ${bInM}`; if(useClick) AudioEngine.beep(bInM===1); lastB = curB; }
+                    const activeM = Math.floor(curB / ts); sys.playbackBlocks.forEach((b, k) => { if(k===activeM) b.classList.add('active'); else b.classList.remove('active'); });
+                    let y = 0; if (el <= scanTime) { y = sys.top + ((el/scanTime) * (sys.bottom - sys.top)); } else { const next = this.systems[idx+1]; y = sys.bottom + (((el-scanTime)/glideTime) * (next.top - sys.bottom)); }
                     this.ui.line.style.top = y + '%';
-
-                    const lineRect = this.ui.line.getBoundingClientRect();
-                    const delta = lineRect.top - (window.innerHeight * 0.45);
-                    if (delta > 10) window.scrollBy(0, Math.ceil(delta * 0.04));
-
-                    if (elapsed < totalDuration) requestAnimationFrame(tick);
-                    else resolve();
-                };
-                requestAnimationFrame(tick);
+                    const rect = this.ui.line.getBoundingClientRect(); const delta = rect.top - (window.innerHeight * 0.45); if(delta > 10) window.scrollBy(0, Math.ceil(delta * 0.04));
+                    if (el < totalDuration) requestAnimationFrame(tick); else res();
+                }; requestAnimationFrame(tick);
             });
         },
 
         stop() {
-            this.isRunning = false;
-            document.body.classList.remove('mode-play', 'mode-clean');
-            this.ui.line.style.display = 'none';
-            document.getElementById('stop-fab').style.display = 'none';
-            document.getElementById('pause-fab').style.display = 'none';
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            this.isRunning = false; WakeLock.disable(); // SCHERM VRIJGEVEN
+            document.body.classList.remove('mode-play', 'mode-clean'); this.ui.line.style.display = 'none'; document.getElementById('stop-fab').style.display = 'none'; document.getElementById('pause-fab').style.display = 'none'; window.scrollTo({ top: 0, behavior: 'smooth' });
         },
 
-        async handleSave() {
-            if (!this.currentPdfBlob || !this.systems.length) return alert("Niets om op te slaan.");
-            const name = prompt("Naam van het stuk:");
-            if (!name) return;
-            const data = {
-                bpm: document.getElementById('inp-bpm').value,
-                ts: document.getElementById('inp-ts').value,
-                systems: this.systems.map(s => ({ top: s.top, bottom: s.bottom, measures: s.measures }))
-            };
-            try { await DB.save(name, this.currentPdfBlob, data); alert("Opgeslagen!"); this.refreshLibrary(); } 
-            catch (e) { alert("Fout: " + e.message); }
-        },
-
-        async refreshLibrary() {
-            const keys = await DB.getAllKeys();
-            const sel = this.ui.libSelect; sel.innerHTML = '<option value="">-- Laden --</option>';
-            keys.forEach(k => { const opt = document.createElement('option'); opt.value = k; opt.innerText = k; sel.appendChild(opt); });
-        },
-
-        async handleLoad(name) {
-            if (!name) return;
-            try {
-                const record = await DB.load(name);
-                this.currentPdfBlob = record.pdfBlob;
-                await this.renderPDF(record.pdfBlob);
-                this.systems = [];
-                record.data.systems.forEach(s => {
-                    this.tempSys = { top: s.top, bottom: s.bottom, measures: s.measures, ui: [] };
-                    this.drawSystemBox(this.tempSys);
-                    let px = 0;
-                    [...s.measures, 100].forEach((mx, i) => {
-                         const div = document.createElement('div'); div.className = 'meas-box';
-                         div.style.left = px + '%'; div.style.width = (mx - px) + '%';
-                         div.style.background = (i % 2 === 0) ? 'var(--zebra-odd)' : 'var(--zebra-even)';
-                         this.tempSys.ui[0].appendChild(div);
-                         px = mx;
-                    });
-                    this.commitSystem();
-                });
-                document.getElementById('inp-bpm').value = record.data.bpm;
-                document.getElementById('inp-ts').value = record.data.ts;
-                this.setStatus("Geladen: " + name);
-            } catch (e) { alert("Laad fout: " + e); }
-        },
-        
-        async handleDelete() {
-             const name = this.ui.libSelect.value;
-             if(name && confirm("Wissen?")) { await DB.delete(name); this.refreshLibrary(); }
-        }
+        async handleSave() { if (!this.currentPdfBlob) return alert("Geen data."); const n = prompt("Naam:"); if(!n) return; try { await DB.save(n, this.currentPdfBlob, { bpm: document.getElementById('inp-bpm').value, ts: document.getElementById('inp-ts').value, systems: this.systems.map(s => ({ top: s.top, bottom: s.bottom, measures: s.measures })) }); alert("Opgeslagen!"); this.refreshLibrary(); } catch(e){ alert(e); } },
+        async refreshLibrary() { const k = await DB.getAllKeys(); const s = this.ui.libSelect; s.innerHTML = '<option value="">-- Laden --</option>'; k.forEach(v => { const o = document.createElement('option'); o.value = v; o.innerText = v; s.appendChild(o); }); },
+        async handleLoad(n) { if(!n) return; try { const r = await DB.load(n); this.currentPdfBlob = r.pdfBlob; await this.renderPDF(r.pdfBlob); this.systems = []; r.data.systems.forEach(s => { this.tempSys = { top: s.top, bottom: s.bottom, measures: s.measures, ui: [] }; this.drawSystemBox(this.tempSys); let px=0; [...s.measures, 100].forEach((m,i)=>{ const d=document.createElement('div'); d.className='meas-box'; d.style.left=px+'%'; d.style.width=(m-px)+'%'; d.style.background=(i%2===0)?'var(--zebra-odd)':'var(--zebra-even)'; this.tempSys.ui[0].appendChild(d); px=m; }); this.commitSystem(); }); document.getElementById('inp-bpm').value = r.data.bpm; document.getElementById('inp-ts').value = r.data.ts; this.setStatus("Geladen: "+n); } catch(e){ alert(e); } },
+        async handleDelete() { const n = this.ui.libSelect.value; if(n && confirm("Wissen?")) { await DB.delete(n); this.refreshLibrary(); } }
     };
-
     App.start();
 </script>
 </body>
