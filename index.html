@@ -3,30 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Conductor Pro v71 - Modular Core</title>
+    <title>Conductor Pro v72 - Precision Fix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
             --ink: #111; --paper: #f4f4f4; --white: #fff;
             --accent: #e74c3c; --highlight: rgba(231, 76, 60, 0.25);
-            --ui-bg: rgba(255, 255, 255, 0.95);
+            --ui-bg: rgba(255, 255, 255, 0.98);
         }
 
         body { font-family: 'Georgia', serif; margin: 0; background: var(--paper); color: var(--ink); overflow-x: hidden; }
 
         /* --- HEADER UI --- */
         #ui-bar {
-            position: fixed; top: 0; left: 0; width: 100%; z-index: 1000;
+            position: fixed; top: 0; left: 0; width: 100%; z-index: 2000;
             background: var(--ui-bg); border-bottom: 2px solid var(--ink);
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
             transition: transform 0.4s ease;
         }
         
         .toolbar { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; justify-content: center; align-items: center; }
-        
         .group { display: flex; flex-direction: column; align-items: center; }
         .label { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #666; margin-bottom: 2px; }
-        
         select, input { padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; }
         
         .btn {
@@ -39,23 +37,26 @@
         .btn-danger { background: #e74c3c; color: white; border-color: #c0392b; }
 
         /* --- VIEWER --- */
+        /* Dit is de container die beweegt. Alles erin beweegt mee. */
         #score-container { 
-            padding-top: 140px; /* Ruimte voor header */
+            position: relative; /* Cruciaal voor absolute children */
+            margin-top: 140px; /* Ruimte voor header */
             display: flex; flex-direction: column; align-items: center; 
-            min-height: 100vh; position: relative;
+            min-height: 100vh;
+            transition: margin-top 0.4s ease; /* Soepele beweging bij start */
+            cursor: crosshair; /* Visuele indicatie voor precisie */
         }
         
         canvas { 
             box-shadow: 0 5px 20px rgba(0,0,0,0.15); margin-bottom: 20px; 
-            max-width: 96%; height: auto; background: white; 
+            max-width: 96%; height: auto; background: white; pointer-events: none; 
         }
 
-        /* --- OVERLAYS --- */
+        /* --- OVERLAYS (Relatief aan score-container) --- */
         #cursor-line {
             position: absolute; left: 0; width: 100%; height: 4px;
             background: var(--accent); z-index: 500; display: none; pointer-events: none;
             box-shadow: 0 0 10px var(--accent);
-            transition: top 0.1s linear; /* Smooth micro-movement */
         }
 
         #info-bubble {
@@ -81,15 +82,16 @@
         #pause-fab { left: 20px; background: #f1c40f; color: black; }
 
         /* --- MODES --- */
+        /* Als we spelen, schuiven we de header weg en verminderen we de margin */
         body.mode-play #ui-bar { transform: translateY(-100%); }
-        body.mode-play #score-container { padding-top: 20px; }
+        body.mode-play #score-container { margin-top: 20px; } 
         body.mode-clean .sys-box, body.mode-clean .meas-box { opacity: 0 !important; }
     </style>
 </head>
 <body>
 
 <nav id="ui-bar">
-    <div style="background:var(--ink); color:white; text-align:center; padding:4px; font-size:10px; letter-spacing:1px;" id="status-text">Klaar om te starten</div>
+    <div style="background:var(--ink); color:white; text-align:center; padding:4px; font-size:10px; letter-spacing:1px;" id="status-text">Klaar voor start</div>
     <div class="toolbar">
         <div class="group">
             <span class="label">Bibliotheek</span>
@@ -98,12 +100,10 @@
                 <button id="btn-del" class="btn btn-danger" style="padding:5px 8px;">X</button>
             </div>
         </div>
-
         <div class="group">
-            <span class="label">Nieuwe PDF</span>
+            <span class="label">PDF</span>
             <input type="file" id="file-upload" accept="application/pdf" style="width:110px;">
         </div>
-
         <div class="group">
             <span class="label">BPM / Maat</span>
             <div style="display:flex; gap:5px;">
@@ -111,7 +111,6 @@
                 <select id="inp-ts"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option></select>
             </div>
         </div>
-
         <div class="group">
             <span class="label">Acties</span>
             <div style="display:flex; gap:5px;">
@@ -121,7 +120,6 @@
                 <button id="btn-play" class="btn btn-primary">Start</button>
             </div>
         </div>
-        
         <div class="group">
             <span class="label">Opties</span>
             <div style="display:flex; gap:5px;">
@@ -140,58 +138,46 @@
 <div id="stop-fab" class="fab">STOP</div>
 
 <script>
-    // --- MODULE 1: DATABASE ---
+    // --- DATABASE ---
     const DB = {
-        name: "ConductorProDB",
+        name: "ConductorProDB_v72", // Nieuwe naam voor schone start
         version: 1,
         db: null,
-
         async init() {
             return new Promise((resolve, reject) => {
                 const req = indexedDB.open(this.name, this.version);
                 req.onupgradeneeded = (e) => {
                     const db = e.target.result;
-                    if (!db.objectStoreNames.contains('scores')) {
-                        db.createObjectStore('scores', { keyPath: 'name' });
-                    }
+                    if (!db.objectStoreNames.contains('scores')) db.createObjectStore('scores', { keyPath: 'name' });
                 };
                 req.onsuccess = (e) => { this.db = e.target.result; resolve(); };
                 req.onerror = (e) => reject(e);
             });
         },
-
         async save(name, pdfBlob, data) {
             return new Promise((resolve, reject) => {
                 const tx = this.db.transaction('scores', 'readwrite');
-                const store = tx.objectStore('scores');
-                const record = { name, pdfBlob, data, timestamp: Date.now() };
-                store.put(record).onsuccess = () => resolve();
-                store.put(record).onerror = (e) => reject(e);
+                tx.objectStore('scores').put({ name, pdfBlob, data, timestamp: Date.now() }).onsuccess = () => resolve();
+                tx.onerror = (e) => reject(e);
             });
         },
-
         async load(name) {
             return new Promise((resolve, reject) => {
                 const tx = this.db.transaction('scores', 'readonly');
-                const store = tx.objectStore('scores');
-                const req = store.get(name);
-                req.onsuccess = () => resolve(req.result);
-                req.onerror = (e) => reject(e);
+                tx.objectStore('scores').get(name).onsuccess = (e) => resolve(e.target.result);
+                tx.onerror = (e) => reject(e);
             });
         },
-
         async getAllKeys() {
             return new Promise((resolve) => {
                 const keys = [];
                 const tx = this.db.transaction('scores', 'readonly');
                 tx.objectStore('scores').openCursor().onsuccess = (e) => {
                     const cursor = e.target.result;
-                    if (cursor) { keys.push(cursor.key); cursor.continue(); }
-                    else resolve(keys);
+                    if (cursor) { keys.push(cursor.key); cursor.continue(); } else resolve(keys);
                 };
             });
         },
-
         async delete(name) {
             return new Promise((resolve) => {
                 const tx = this.db.transaction('scores', 'readwrite');
@@ -200,44 +186,27 @@
         }
     };
 
-    // --- MODULE 2: AUDIO ---
+    // --- AUDIO ---
     const AudioEngine = {
         ctx: null,
-        
-        init() {
-            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        },
-
-        resume() {
-            if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
-        },
-
+        init() { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+        resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
         beep(isDownbeat) {
             if (!this.ctx) this.init();
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-
+            osc.connect(gain); gain.connect(this.ctx.destination);
             osc.frequency.value = isDownbeat ? 1000 : 600;
             gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
-
-            osc.start();
-            osc.stop(this.ctx.currentTime + 0.1);
+            osc.start(); osc.stop(this.ctx.currentTime + 0.1);
         }
     };
 
-    // --- MODULE 3: APP LOGIC ---
+    // --- APP ---
     const App = {
-        pdfDoc: null,
-        currentPdfBlob: null,
-        systems: [],
-        tempSys: null,
-        state: 'IDLE', // IDLE, MARKING_TOP, MARKING_BOTTOM, MARKING_MEASURES
-        isRunning: false,
-        isPaused: false,
-        
+        pdfDoc: null, currentPdfBlob: null, systems: [], tempSys: null,
+        state: 'IDLE', isRunning: false, isPaused: false,
         ui: {
             container: document.getElementById('score-container'),
             status: document.getElementById('status-text'),
@@ -249,42 +218,57 @@
         async start() {
             await DB.init();
             this.refreshLibrary();
-            this.setupEventListeners();
+            this.setupEvents();
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
         },
 
-        setupEventListeners() {
+        setupEvents() {
             document.getElementById('file-upload').onchange = (e) => this.handleUpload(e);
             document.getElementById('btn-play').onclick = () => this.play();
             document.getElementById('stop-fab').onclick = () => this.stop();
-            document.getElementById('pause-fab').onclick = () => this.togglePause();
+            document.getElementById('pause-fab').onclick = () => { this.isPaused = !this.isPaused; };
             document.getElementById('btn-save').onclick = () => this.handleSave();
             document.getElementById('lib-select').onchange = (e) => this.handleLoad(e.target.value);
             document.getElementById('btn-del').onclick = () => this.handleDelete();
             
-            // Editor Controls
-            this.ui.container.onmousedown = (e) => this.onContainerClick(e);
+            // EDITOR CLICK HANDLER (DE PRECISIE FIX)
+            this.ui.container.onmousedown = (e) => {
+                if (this.isRunning) return;
+                
+                // 1. Haal de 'Bounding Rect' van de container op.
+                // Dit geeft ons de exacte positie van de container op het scherm.
+                const rect = this.ui.container.getBoundingClientRect();
+                
+                // 2. Bereken Y relatief aan de BOVENKANT van de container.
+                // e.clientY is muis op scherm. rect.top is bovenkant container op scherm.
+                // Het verschil is de exacte pixel in de container, ongeacht scroll of margin.
+                const relativeY = e.clientY - rect.top;
+                const relativeX = e.clientX - rect.left;
+
+                // 3. Zet om naar percentage voor responsive scaling
+                const yPct = (relativeY / rect.height) * 100;
+                const xPct = (relativeX / rect.width) * 100;
+
+                this.onEditorClick(yPct, xPct);
+            };
+
             document.getElementById('btn-ok').onclick = () => this.commitSystem();
             document.getElementById('btn-undo').onclick = () => this.undo();
         },
 
         setStatus(msg) { this.ui.status.innerText = msg; },
 
-        // --- PDF HANDLING ---
         async handleUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            this.currentPdfBlob = file; // Store as Blob/File directly
+            const file = e.target.files[0]; if (!file) return;
+            this.currentPdfBlob = file;
             await this.renderPDF(file);
-            this.systems = []; // Reset data
-            this.clearOverlays();
+            this.systems = []; this.clearOverlays();
         },
 
         async renderPDF(blob) {
-            this.setStatus("Bezig met renderen...");
+            this.setStatus("Renderen...");
             const arrayBuffer = await blob.arrayBuffer();
             this.pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
-            
             this.ui.container.querySelectorAll('canvas').forEach(c => c.remove());
             
             for (let i = 1; i <= this.pdfDoc.numPages; i++) {
@@ -295,27 +279,19 @@
                 await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
                 this.ui.container.appendChild(canvas);
             }
-            this.state = 'MARKING_TOP';
-            this.setStatus("Klik op de BOVENKANT van de eerste regel");
+            this.state = 'MARKING_TOP'; this.setStatus("Klik BOVENKANT regel");
         },
 
-        // --- EDITOR LOGIC ---
-        onContainerClick(e) {
-            if (this.isRunning) return;
-            const rect = this.ui.container.getBoundingClientRect();
-            const yPct = ((e.clientY - rect.top + window.scrollY) / this.ui.container.scrollHeight) * 100;
-            const xPct = ((e.clientX - rect.left) / rect.width) * 100;
-
+        onEditorClick(yPct, xPct) {
             if (this.state === 'MARKING_TOP') {
                 this.tempSys = { top: yPct, bottom: 0, measures: [], ui: [] };
-                this.state = 'MARKING_BOTTOM';
-                this.setStatus("Klik op de ONDERKANT van de regel");
+                this.state = 'MARKING_BOTTOM'; this.setStatus("Klik ONDERKANT regel");
             } 
             else if (this.state === 'MARKING_BOTTOM') {
                 this.tempSys.bottom = yPct;
                 this.drawSystemBox(this.tempSys);
                 this.state = 'MARKING_MEASURES';
-                this.setStatus("Klik maatstrepen. Druk OK voor volgende regel.");
+                this.setStatus("Klik maatstrepen. Druk OK.");
                 document.getElementById('btn-ok').style.display = 'inline-block';
             }
             else if (this.state === 'MARKING_MEASURES') {
@@ -325,78 +301,48 @@
         },
 
         drawSystemBox(sys) {
-            const div = document.createElement('div');
-            div.className = 'sys-box';
-            div.style.top = sys.top + '%';
-            div.style.height = (sys.bottom - sys.top) + '%';
-            this.ui.container.appendChild(div);
-            sys.ui.push(div);
+            const div = document.createElement('div'); div.className = 'sys-box';
+            div.style.top = sys.top + '%'; div.style.height = (sys.bottom - sys.top) + '%';
+            this.ui.container.appendChild(div); sys.ui.push(div);
         },
 
         drawMeasureLine(sys, x) {
-            const div = document.createElement('div');
-            div.className = 'meas-box';
-            div.style.left = x + '%'; // Visual only, logic handles widths later
-            // Note: In this simplified drawer we just show a line or box. 
-            // Real drawing happens on Play or Load.
-            const box = sys.ui[0]; // The system box
-            
-            // Draw relative to system box for visual clarity
-            const mDiv = document.createElement('div');
-            mDiv.className = 'meas-box';
-            // Simple visual marker
-            mDiv.style.left = x + '%';
-            mDiv.style.borderLeft = "2px solid red"; 
-            mDiv.style.width = "2px";
-            box.appendChild(mDiv);
+            const div = document.createElement('div'); div.className = 'meas-box';
+            // Visueel truukje: We tekenen de streep relative aan de container, 
+            // maar in play mode vullen we de ruimte ertussen.
+            // Voor nu: simpele verticale lijn op X positie.
+            div.style.left = x + '%'; div.style.borderRight = "2px solid blue";
+            div.style.top = sys.top + '%'; div.style.height = (sys.bottom - sys.top) + '%';
+            this.ui.container.appendChild(div); sys.ui.push(div);
         },
 
         commitSystem() {
-            // Sort measures and add implied last measure
             this.tempSys.measures.sort((a,b) => a - b);
             this.systems.push(this.tempSys);
             this.tempSys = null;
-            this.state = 'MARKING_TOP';
-            this.setStatus("Regel opgeslagen. Klik BOVENKANT volgende regel.");
+            this.state = 'MARKING_TOP'; this.setStatus("Regel opgeslagen.");
             document.getElementById('btn-ok').style.display = 'none';
         },
 
         undo() {
             if (this.state === 'MARKING_MEASURES' && this.tempSys.measures.length > 0) {
                 this.tempSys.measures.pop();
-                // Remove visual (simplified) - in a real app better DOM management needed
-                const box = this.tempSys.ui[0];
-                if(box.lastChild) box.lastChild.remove();
+                const el = this.tempSys.ui.pop(); if(el) el.remove();
             } else if (this.systems.length > 0) {
                 const sys = this.systems.pop();
                 sys.ui.forEach(el => el.remove());
-                this.state = 'MARKING_TOP';
-                this.setStatus("Laatste regel verwijderd.");
+                this.state = 'MARKING_TOP'; this.setStatus("Regel verwijderd.");
             }
         },
 
-        clearOverlays() {
-            document.querySelectorAll('.sys-box, .meas-box').forEach(e => e.remove());
-        },
+        clearOverlays() { document.querySelectorAll('.sys-box, .meas-box').forEach(e => e.remove()); },
 
-        restoreOverlays() {
-            this.clearOverlays();
-            this.systems.forEach(sys => {
-                this.drawSystemBox(sys);
-                // Re-draw measures logic if needed visually
-                let left = 0;
-                // Add dummy measure logic for visuals if desired
-            });
-        },
-
-        // --- PLAYBACK LOGIC ---
+        // --- PLAYBACK ---
         async play() {
             if (!this.systems.length) return alert("Geen data!");
-            
             this.isRunning = true; this.isPaused = false;
             AudioEngine.resume();
             
-            // Set UI Mode
             document.body.classList.add('mode-play');
             const viewMode = document.getElementById('inp-view').value;
             if(viewMode === 'clean') document.body.classList.add('mode-clean');
@@ -409,6 +355,9 @@
             const ts = parseInt(document.getElementById('inp-ts').value);
             const useClick = document.getElementById('inp-click').value === 'on';
 
+            // Teken 'echte' maatblokken voor highlighting (verborgen tot play)
+            this.preparePlaybackVisuals();
+
             for (let i = 0; i < this.systems.length; i++) {
                 if (!this.isRunning) break;
                 await this.playSystemSequence(this.systems[i], i, bpm, ts, useClick);
@@ -416,18 +365,36 @@
             this.stop();
         },
 
+        preparePlaybackVisuals() {
+            // Converteer lijntjes naar vlakken voor highlighting
+            this.clearOverlays(); // Ruim editor lijnen op
+            this.systems.forEach(sys => {
+                // Teken container box
+                const sysDiv = document.createElement('div'); sysDiv.className = 'sys-box';
+                sysDiv.style.top = sys.top + '%'; sysDiv.style.height = (sys.bottom - sys.top) + '%';
+                this.ui.container.appendChild(sysDiv);
+                
+                // Teken maatvlakken
+                const coords = [0, ...sys.measures, 100];
+                sys.playbackBlocks = [];
+                for(let i=0; i<coords.length-1; i++) {
+                    const blk = document.createElement('div'); blk.className = 'meas-box';
+                    blk.style.left = coords[i] + '%'; 
+                    blk.style.width = (coords[i+1] - coords[i]) + '%';
+                    // Voeg toe aan sysDiv zodat ze relatief zijn aan de regel
+                    sysDiv.appendChild(blk);
+                    sys.playbackBlocks.push(blk);
+                }
+            });
+        },
+
         playSystemSequence(sys, idx, bpm, ts, useClick) {
             return new Promise(resolve => {
-                // Calculate Measures
-                // We have X-positions in measures array. 
-                // We need to create blocks: [0 -> m1], [m1 -> m2], [lastM -> 100]
-                const coords = [0, ...sys.measures, 100];
-                const measureCount = coords.length - 1;
+                const measureCount = sys.playbackBlocks.length;
                 const totalBeats = measureCount * ts;
-                const totalDuration = (totalBeats / bpm) * 60; // seconds
+                const totalDuration = (totalBeats / bpm) * 60;
                 
-                // Glide Logic (simplified: 15% transition time)
-                const glideRatio = 0.15;
+                const glideRatio = 0.15; // 15% glide
                 const isLastSys = idx === this.systems.length - 1;
                 const scanTime = isLastSys ? totalDuration : totalDuration * (1 - glideRatio);
                 const glideTime = isLastSys ? 0 : totalDuration * glideRatio;
@@ -442,7 +409,7 @@
                     const elapsed = (now - start) / 1000;
                     const pct = Math.min(elapsed / totalDuration, 1);
                     
-                    // 1. BEATS & AUDIO
+                    // BEATS
                     const currentBeatTotal = Math.floor(pct * totalBeats);
                     if (currentBeatTotal !== lastBeatIdx && currentBeatTotal < totalBeats) {
                         const bInM = (currentBeatTotal % ts) + 1;
@@ -452,28 +419,29 @@
                         lastBeatIdx = currentBeatTotal;
                     }
 
-                    // 2. LINE POSITION (State Machine: Scanning vs Gliding)
+                    // HIGHLIGHT
+                    const activeMeasureIdx = Math.floor(currentBeatTotal / ts);
+                    sys.playbackBlocks.forEach((b, k) => {
+                        if (k === activeMeasureIdx) b.classList.add('active');
+                        else b.classList.remove('active');
+                    });
+
+                    // LIJN BEWEGING
                     let y = 0;
                     if (elapsed <= scanTime) {
                         const sysPct = elapsed / scanTime;
                         y = sys.top + (sysPct * (sys.bottom - sys.top));
                     } else {
-                        // Gliding
                         const nextSys = this.systems[idx + 1];
-                        if (nextSys) {
-                            const glidePct = (elapsed - scanTime) / glideTime;
-                            y = sys.bottom + (glidePct * (nextSys.top - sys.bottom));
-                        } else {
-                            y = sys.bottom;
-                        }
+                        const glidePct = (elapsed - scanTime) / glideTime;
+                        y = sys.bottom + (glidePct * (nextSys.top - sys.bottom));
                     }
                     this.ui.line.style.top = y + '%';
 
-                    // 3. SMART SCROLL (Only scroll if line is low)
+                    // SCROLL FIX: Gebruik line.getBoundingClientRect() om te checken of hij te laag komt
                     const lineRect = this.ui.line.getBoundingClientRect();
-                    const threshold = window.innerHeight * 0.60; // 60% down
+                    const threshold = window.innerHeight * 0.60;
                     if (lineRect.top > threshold) {
-                         // Scroll smooth amount
                          window.scrollBy({ top: lineRect.top - (window.innerHeight * 0.40), behavior: 'smooth' });
                     }
 
@@ -484,8 +452,6 @@
             });
         },
 
-        togglePause() { this.isPaused = !this.isPaused; },
-
         stop() {
             this.isRunning = false;
             document.body.classList.remove('mode-play', 'mode-clean');
@@ -493,38 +459,26 @@
             document.getElementById('stop-fab').style.display = 'none';
             document.getElementById('pause-fab').style.display = 'none';
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Herstel editor view (optioneel, of reload om schoon te beginnen)
         },
 
-        // --- STORAGE ---
         async handleSave() {
             if (!this.currentPdfBlob || !this.systems.length) return alert("Niets om op te slaan.");
             const name = prompt("Naam:");
             if (!name) return;
-
             const data = {
                 bpm: document.getElementById('inp-bpm').value,
                 ts: document.getElementById('inp-ts').value,
                 systems: this.systems.map(s => ({ top: s.top, bottom: s.bottom, measures: s.measures }))
             };
-
-            try {
-                await DB.save(name, this.currentPdfBlob, data);
-                alert("Opgeslagen!");
-                this.refreshLibrary();
-            } catch (e) {
-                alert("Fout: " + e.message);
-            }
+            try { await DB.save(name, this.currentPdfBlob, data); alert("Opgeslagen!"); this.refreshLibrary(); } 
+            catch (e) { alert("Fout: " + e.message); }
         },
 
         async refreshLibrary() {
             const keys = await DB.getAllKeys();
-            const sel = this.ui.libSelect;
-            sel.innerHTML = '<option value="">-- Kies --</option>';
-            keys.forEach(k => {
-                const opt = document.createElement('option');
-                opt.value = k; opt.innerText = k;
-                sel.appendChild(opt);
-            });
+            const sel = this.ui.libSelect; sel.innerHTML = '<option value="">-- Laden --</option>';
+            keys.forEach(k => { const opt = document.createElement('option'); opt.value = k; opt.innerText = k; sel.appendChild(opt); });
         },
 
         async handleLoad(name) {
@@ -533,33 +487,30 @@
                 const record = await DB.load(name);
                 this.currentPdfBlob = record.pdfBlob;
                 await this.renderPDF(record.pdfBlob);
+                this.systems = []; // Clear old
                 
-                // Restore Data
-                this.systems = [];
+                // Restore logic
                 record.data.systems.forEach(s => {
                     this.tempSys = { top: s.top, bottom: s.bottom, measures: s.measures, ui: [] };
                     this.drawSystemBox(this.tempSys);
+                    // Re-draw measures visually
+                    s.measures.forEach(mx => this.drawMeasureLine(this.tempSys, mx));
                     this.commitSystem();
                 });
                 
                 document.getElementById('inp-bpm').value = record.data.bpm;
                 document.getElementById('inp-ts').value = record.data.ts;
                 this.setStatus("Geladen: " + name);
-            } catch (e) {
-                alert("Laad fout: " + e);
-            }
+            } catch (e) { alert("Laad fout: " + e); }
         },
         
         async handleDelete() {
              const name = this.ui.libSelect.value;
-             if(name && confirm("Wissen?")) {
-                 await DB.delete(name);
-                 this.refreshLibrary();
-             }
+             if(name && confirm("Wissen?")) { await DB.delete(name); this.refreshLibrary(); }
         }
     };
 
     App.start();
 </script>
 </body>
-</html>
+                    </html>
