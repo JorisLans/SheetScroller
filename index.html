@@ -3,19 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Conductor Pro v74 - Stable Scroll</title>
+    <title>Conductor Pro v75 - High Contrast</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
             --ink: #111; --paper: #f4f4f4; --white: #fff;
-            --accent: #e74c3c; --highlight: rgba(231, 76, 60, 0.3);
+            --accent: #e74c3c; 
+            --highlight: rgba(231, 76, 60, 0.4); /* Feller rood voor playback */
             --ui-bg: rgba(255, 255, 255, 0.98);
             
-            /* VERBETERDE ZEBRA KLEUREN */
-            /* Zebra 1: Heel licht grijs */
-            --zebra-1: rgba(0, 0, 0, 0.05); 
-            /* Zebra 2: Duidelijk donkerder + randje */
-            --zebra-2: rgba(0, 0, 0, 0.25);
+            /* HIGH CONTRAST EDITOR KLEUREN */
+            /* Maat Type 1: Zichtbaar grijs */
+            --zebra-odd: rgba(0, 0, 0, 0.10); 
+            /* Maat Type 2: Duidelijk donkerder grijs */
+            --zebra-even: rgba(0, 0, 0, 0.25);
+            /* De scheidingslijn */
+            --measure-border: 2px solid #000;
         }
 
         body { font-family: 'Georgia', serif; margin: 0; background: var(--paper); color: var(--ink); overflow-x: hidden; }
@@ -43,12 +46,9 @@
 
         /* --- VIEWER --- */
         #score-container { 
-            position: relative; 
-            margin-top: 140px; 
+            position: relative; margin-top: 140px; 
             display: flex; flex-direction: column; align-items: center; 
-            min-height: 100vh;
-            transition: margin-top 0.4s ease; 
-            cursor: crosshair; 
+            min-height: 100vh; transition: margin-top 0.4s ease; cursor: crosshair; 
         }
         
         canvas { 
@@ -61,7 +61,6 @@
             position: absolute; left: 0; width: 100%; height: 4px;
             background: var(--accent); z-index: 500; display: none; pointer-events: none;
             box-shadow: 0 0 10px var(--accent);
-            /* We verwijderen de CSS transition hier om conflicten met JS scroll te voorkomen */
         }
 
         #info-bubble {
@@ -71,16 +70,22 @@
             white-space: nowrap; pointer-events: none;
         }
 
-        .sys-box { position: absolute; left: 0; width: 100%; border: 2px solid blue; pointer-events: none; opacity: 0.6; }
+        .sys-box { position: absolute; left: 0; width: 100%; border: 3px solid #000; pointer-events: none; opacity: 0.7; }
         
-        /* De maatblokken (Zebra) - Nu met border voor extra duidelijkheid */
+        /* DE HARDE MAATBLOKKEN */
         .meas-box { 
             position: absolute; top: 0; height: 100%; 
-            border-right: 1px solid rgba(0,0,0,0.3); 
+            border-right: var(--measure-border); 
+            box-sizing: border-box; /* Zorgt dat border binnen breedte valt */
             pointer-events: none; 
-            box-sizing: border-box;
         }
-        .meas-box.active { background: var(--highlight) !important; opacity: 1 !important; border: 2px solid var(--accent); }
+        
+        /* PLAYBACK HIGHLIGHT (OVERSCHRIJFT ZEBRA) */
+        .meas-box.active { 
+            background: var(--highlight) !important; 
+            border-right: 2px solid var(--accent) !important;
+            opacity: 1 !important; 
+        }
 
         /* --- FAB BUTTONS --- */
         .fab {
@@ -151,7 +156,7 @@
 <script>
     // --- DATABASE ---
     const DB = {
-        name: "ConductorProDB_v74",
+        name: "ConductorProDB_v75",
         version: 1,
         db: null,
         async init() {
@@ -314,9 +319,9 @@
             div.style.left = prevX + '%';
             div.style.width = (currentX - prevX) + '%';
             
-            // HOOG CONTRAST ZEBRA
+            // CONTRAST LOGICA
             const isEven = (index % 2 === 0);
-            div.style.background = isEven ? 'var(--zebra-1)' : 'var(--zebra-2)';
+            div.style.background = isEven ? 'var(--zebra-odd)' : 'var(--zebra-even)';
             
             const sysBox = sys.ui[0];
             sysBox.appendChild(div);
@@ -325,13 +330,15 @@
         commitSystem() {
             this.tempSys.measures.sort((a,b) => a - b);
             
+            // LAATSTE MAAT OOK TEKENEN
             const lastX = this.tempSys.measures[this.tempSys.measures.length - 1] || 0;
             if (lastX < 100) {
                 const div = document.createElement('div'); div.className = 'meas-box';
                 div.style.left = lastX + '%';
                 div.style.width = (100 - lastX) + '%';
+                // Kleur logica doortrekken
                 const isEven = (this.tempSys.measures.length % 2 === 0);
-                div.style.background = isEven ? 'var(--zebra-1)' : 'var(--zebra-2)';
+                div.style.background = isEven ? 'var(--zebra-odd)' : 'var(--zebra-even)';
                 this.tempSys.ui[0].appendChild(div);
             }
 
@@ -450,15 +457,13 @@
                     }
                     this.ui.line.style.top = y + '%';
 
-                    // --- ANTI-JITTER SMOOTH SCROLL ---
+                    // --- ANTI-JITTER SMOOTH SCROLL (Deadzone + Integer rounding) ---
                     const lineRect = this.ui.line.getBoundingClientRect();
-                    const idealPos = window.innerHeight * 0.45; // Doel: 45% van scherm
+                    const idealPos = window.innerHeight * 0.45; 
                     const delta = lineRect.top - idealPos;
 
                     if (delta > 10) { 
-                        // DEADZONE: Alleen scrollen als verschil groter is dan 10px
-                        // INTEGER STEP: Scroll minimaal 1px of een fractie (0.04)
-                        // Dit voorkomt sub-pixel trillingen
+                        // Scroll alleen als we meer dan 10px afwijken, en doe dit in hele pixels
                         const step = Math.ceil(delta * 0.04); 
                         window.scrollBy(0, step); 
                     }
@@ -479,6 +484,7 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         },
 
+        // --- STORAGE ---
         async handleSave() {
             if (!this.currentPdfBlob || !this.systems.length) return alert("Niets om op te slaan.");
             const name = prompt("Naam:");
@@ -508,6 +514,7 @@
                 record.data.systems.forEach(s => {
                     this.tempSys = { top: s.top, bottom: s.bottom, measures: s.measures, ui: [] };
                     this.drawSystemBox(this.tempSys);
+                    // Force Zebra redraw
                     let px = 0;
                     [...s.measures, 100].forEach(mx => {
                         if (mx > 0) this.drawMeasureBlock(this.tempSys, mx);
