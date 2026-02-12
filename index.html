@@ -3,31 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Conductor Pro v79 - Studio Edition</title>
+    <title>Conductor Pro v80 - Clean Default</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
-            /* Modern Palette */
-            --bg-body: #f1f5f9;
-            --panel-bg: #1e293b; /* Dark Slate */
-            --text-light: #f8fafc;
-            --text-dark: #334155;
+            --ink: #111; --paper: #f4f4f4; --white: #fff;
+            --accent: #ff0000; 
+            --highlight: rgba(255, 200, 0, 0.25);
+            --ui-bg: rgba(255, 255, 255, 0.98);
             
-            --accent: #ef4444; /* Red */
-            --primary: #3b82f6; /* Blue */
-            --success: #22c55e; /* Green */
-            
-            --highlight: rgba(255, 200, 0, 0.3);
-            
-            /* Zebra */
-            --zebra-odd: rgba(0, 0, 0, 0.04); 
-            --zebra-even: rgba(0, 0, 0, 0.15);
+            --zebra-odd: rgba(0, 0, 0, 0.05); 
+            --zebra-even: rgba(0, 0, 0, 0.20);
             --measure-border: 2px solid #000;
         }
 
-        /* CURSOR FIX: Permanent Black SVG */
+        /* PERMANENT BLACK CURSOR */
         body, html, #score-container, canvas, .sys-box, .meas-box {
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             margin: 0; background: var(--bg-body); color: var(--text-dark);
             overflow-x: hidden; user-select: none;
             cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><line x1="12" y1="0" x2="12" y2="24" stroke="black" stroke-width="2"/><line x1="0" y1="12" x2="24" y2="12" stroke="black" stroke-width="2"/></svg>') 12 12, crosshair !important;
@@ -36,12 +28,10 @@
         /* --- PRO HEADER --- */
         #ui-bar {
             position: fixed; top: 0; left: 0; width: 100%; z-index: 2000;
-            background: var(--panel-bg); 
+            background: #1e293b; color: #f8fafc;
             box-shadow: 0 4px 20px rgba(0,0,0,0.2); 
             transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            color: var(--text-light);
-            padding-bottom: 10px;
-            cursor: default !important;
+            padding-bottom: 10px; cursor: default !important;
         }
         
         #status-bar {
@@ -50,34 +40,25 @@
             letter-spacing: 1px; text-transform: uppercase; color: #94a3b8;
         }
 
-        .toolbar { 
-            display: flex; flex-wrap: wrap; gap: 15px; 
-            padding: 10px 20px; justify-content: center; align-items: flex-end; 
-        }
-        
+        .toolbar { display: flex; flex-wrap: wrap; gap: 15px; padding: 10px 20px; justify-content: center; align-items: flex-end; }
         .group { display: flex; flex-direction: column; gap: 4px; }
         .label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px; }
         
-        /* Modern Inputs */
         select, input { 
             background: #334155; color: white; border: 1px solid #475569;
             padding: 6px 10px; border-radius: 6px; font-size: 12px; outline: none; cursor: pointer !important;
         }
-        select:focus, input:focus { border-color: var(--primary); }
-
-        /* Modern Buttons */
+        
         .btn {
             padding: 8px 16px; border: none; border-radius: 6px;
             font-weight: 600; font-size: 12px; cursor: pointer !important;
             transition: all 0.2s; color: white; background: #475569;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
-        .btn:hover { filter: brightness(110%); transform: translateY(-1px); }
         .btn:active { transform: translateY(1px); }
-        
-        .btn-primary { background: var(--success); color: #000; }
-        .btn-action { background: var(--primary); }
-        .btn-danger { background: var(--accent); }
+        .btn-primary { background: #22c55e; color: #000; }
+        .btn-action { background: #3b82f6; }
+        .btn-danger { background: #ef4444; }
         
         /* --- VIEWER --- */
         #score-container { 
@@ -98,11 +79,13 @@
             display: none; pointer-events: none;
             box-shadow: 0 0 0 2px white, 0 4px 12px rgba(0,0,0,0.4);
             border-radius: 2px;
+            /* In Clean mode maken we de opacity 0, zodat hij onzichtbaar is maar wel bestaat voor scroll-logica */
+            transition: opacity 0.3s;
         }
 
         #info-bubble {
             position: absolute; left: 50%; bottom: -50px; transform: translateX(-50%);
-            background: var(--panel-bg); color: white; padding: 6px 16px;
+            background: #1e293b; color: white; padding: 6px 16px;
             font-size: 14px; font-weight: 700; border-radius: 30px;
             white-space: nowrap; pointer-events: none;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 2px solid white;
@@ -125,19 +108,24 @@
         /* --- FAB BUTTONS --- */
         .fab {
             position: fixed; bottom: 30px; width: 65px; height: 65px;
-            border-radius: 50%; background: var(--panel-bg); color: white;
+            border-radius: 50%; background: #1e293b; color: white;
             display: none; align-items: center; justify-content: center;
             font-weight: 900; font-size: 12px; cursor: pointer !important; z-index: 2000;
             box-shadow: 0 10px 25px rgba(0,0,0,0.4); border: 2px solid white;
-            transition: transform 0.2s;
         }
-        .fab:active { transform: scale(0.95); }
         #stop-fab { right: 30px; background: var(--accent); }
         #pause-fab { left: 30px; background: #fbbf24; color: black; }
 
+        /* --- MODES --- */
         body.mode-play #ui-bar { transform: translateY(-100%); }
         body.mode-play #score-container { margin-top: 40px; } 
-        body.mode-clean .sys-box, body.mode-clean .meas-box { opacity: 0 !important; }
+        
+        /* CLEAN MODE LOGICA: Verberg alles */
+        body.mode-clean .sys-box, 
+        body.mode-clean .meas-box,
+        body.mode-clean #cursor-line { 
+            opacity: 0 !important; 
+        }
     </style>
 </head>
 <body>
@@ -176,7 +164,7 @@
             <span class="label">Instellingen</span>
             <div style="display:flex; gap:5px;">
                 <select id="inp-click"><option value="on">Klik AAN</option><option value="off">Klik UIT</option></select>
-                <select id="inp-view"><option value="guide">Guide</option><option value="clean">Clean</option></select>
+                <select id="inp-view"><option value="clean" selected>Clean</option><option value="guide">Guide</option></select>
             </div>
         </div>
     </div>
@@ -191,7 +179,7 @@
 
 <script>
     const DB = {
-        name: "ConductorProDB_v79",
+        name: "ConductorProDB_v80",
         version: 1,
         db: null,
         async init() {
@@ -278,6 +266,12 @@
             document.getElementById('lib-select').onchange = (e) => this.handleLoad(e.target.value);
             document.getElementById('btn-del').onclick = () => this.handleDelete();
             
+            // LIVE VIEW TOGGLE: Wissel direct tussen Guide/Clean zonder stop
+            document.getElementById('inp-view').onchange = (e) => {
+                if (e.target.value === 'clean') document.body.classList.add('mode-clean');
+                else document.body.classList.remove('mode-clean');
+            };
+
             this.ui.container.onmousedown = (e) => {
                 if (this.isRunning) return;
                 const rect = this.ui.container.getBoundingClientRect();
@@ -391,7 +385,9 @@
             AudioEngine.resume();
             
             document.body.classList.add('mode-play');
+            // Check default setting at start
             if(document.getElementById('inp-view').value === 'clean') document.body.classList.add('mode-clean');
+            else document.body.classList.remove('mode-clean');
             
             this.ui.line.style.display = 'block';
             document.getElementById('stop-fab').style.display = 'flex';
@@ -403,14 +399,12 @@
 
             this.preparePlaybackVisuals();
 
-            // 1. HET AFTELLEN (COUNT-IN)
-            // Scroll vast naar eerste regel
+            // Initial Scroll to start position (even if invisible)
             this.ui.line.style.top = this.systems[0].top + '%';
             this.ui.line.scrollIntoView({block: 'center', behavior: 'smooth'});
             
             await this.doCountIn(bpm, ts);
 
-            // 2. START MUZIEK
             for (let i = 0; i < this.systems.length; i++) {
                 if (!this.isRunning) break;
                 await this.playSystemSequence(this.systems[i], i, bpm, ts, useClick);
@@ -431,9 +425,8 @@
                     count++;
                     const isDownbeat = (count === 1);
                     
-                    // Visueel & Audio
                     this.ui.bubble.innerText = `AFTEL: ${count} / ${ts}`;
-                    AudioEngine.beep(isDownbeat); // Altijd geluid bij aftellen
+                    AudioEngine.beep(isDownbeat); 
                     
                     if (count < ts) {
                         setTimeout(tick, msPerBeat);
