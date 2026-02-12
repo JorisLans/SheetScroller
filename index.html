@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Conductor Pro v80 - Clean Default</title>
+    <title>Conductor Pro v81 - Stable Storage</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -79,7 +79,6 @@
             display: none; pointer-events: none;
             box-shadow: 0 0 0 2px white, 0 4px 12px rgba(0,0,0,0.4);
             border-radius: 2px;
-            /* In Clean mode maken we de opacity 0, zodat hij onzichtbaar is maar wel bestaat voor scroll-logica */
             transition: opacity 0.3s;
         }
 
@@ -120,7 +119,7 @@
         body.mode-play #ui-bar { transform: translateY(-100%); }
         body.mode-play #score-container { margin-top: 40px; } 
         
-        /* CLEAN MODE LOGICA: Verberg alles */
+        /* CLEAN MODE LOGICA */
         body.mode-clean .sys-box, 
         body.mode-clean .meas-box,
         body.mode-clean #cursor-line { 
@@ -131,7 +130,7 @@
 <body>
 
 <nav id="ui-bar">
-    <div id="status-bar">Gereed</div>
+    <div id="status-bar">Gereed - Opslag: Permanent</div>
     <div class="toolbar">
         <div class="group">
             <span class="label">Bibliotheek</span>
@@ -178,8 +177,13 @@
 <div id="stop-fab" class="fab">STOP</div>
 
 <script>
+    // --- DATABASE CONFIGURATIE ---
+    // BELANGRIJK: Verander deze naam NIET MEER.
+    // Zolang deze naam hetzelfde blijft, blijft je bibliotheek behouden bij updates.
+    const DB_NAME = "Conductor_Master_Library"; 
+    
     const DB = {
-        name: "ConductorProDB_v80",
+        name: DB_NAME,
         version: 1,
         db: null,
         async init() {
@@ -266,7 +270,6 @@
             document.getElementById('lib-select').onchange = (e) => this.handleLoad(e.target.value);
             document.getElementById('btn-del').onclick = () => this.handleDelete();
             
-            // LIVE VIEW TOGGLE: Wissel direct tussen Guide/Clean zonder stop
             document.getElementById('inp-view').onchange = (e) => {
                 if (e.target.value === 'clean') document.body.classList.add('mode-clean');
                 else document.body.classList.remove('mode-clean');
@@ -378,14 +381,13 @@
 
         clearOverlays() { document.querySelectorAll('.sys-box, .meas-box').forEach(e => e.remove()); },
 
-        // --- PLAYBACK SEQUENCE ---
+        // --- PLAYBACK ---
         async playSequence() {
             if (!this.systems.length) return alert("Geen muziek om te spelen!");
             this.isRunning = true; this.isPaused = false;
             AudioEngine.resume();
             
             document.body.classList.add('mode-play');
-            // Check default setting at start
             if(document.getElementById('inp-view').value === 'clean') document.body.classList.add('mode-clean');
             else document.body.classList.remove('mode-clean');
             
@@ -399,7 +401,6 @@
 
             this.preparePlaybackVisuals();
 
-            // Initial Scroll to start position (even if invisible)
             this.ui.line.style.top = this.systems[0].top + '%';
             this.ui.line.scrollIntoView({block: 'center', behavior: 'smooth'});
             
