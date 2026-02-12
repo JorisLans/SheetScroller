@@ -3,38 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Conductor Pro v76 - High Visibility</title>
+    <title>Conductor Pro v77 - Live Zebra</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
             --ink: #111; --paper: #f4f4f4; --white: #fff;
-            --accent: #ff0000; /* Puur rood voor maximale zichtbaarheid */
-            --highlight: rgba(255, 200, 0, 0.25); /* Geel/Goud voor actieve maat (beter contrast met rood) */
+            --accent: #ff0000; 
+            --highlight: rgba(255, 200, 0, 0.25);
             --ui-bg: rgba(255, 255, 255, 0.98);
             
-            /* High Contrast Zebra */
+            /* Duidelijke Zebra Kleuren */
             --zebra-odd: rgba(0, 0, 0, 0.05); 
             --zebra-even: rgba(0, 0, 0, 0.20);
             --measure-border: 2px solid #000;
         }
 
-        body { font-family: 'Georgia', serif; margin: 0; background: var(--paper); color: var(--ink); overflow-x: hidden; user-select: none; }
+        /* CURSOR FIX: Forceer crosshair overal */
+        body, html, #score-container, canvas, .sys-box, .meas-box {
+            font-family: 'Georgia', serif; 
+            margin: 0; 
+            background: var(--paper); 
+            color: var(--ink); 
+            overflow-x: hidden; 
+            user-select: none;
+            cursor: crosshair !important; /* Forceer zwarte crosshair */
+        }
 
         /* --- HEADER --- */
         #ui-bar {
             position: fixed; top: 0; left: 0; width: 100%; z-index: 2000;
             background: var(--ui-bg); border-bottom: 2px solid var(--ink);
             box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.4s ease;
+            cursor: default !important; /* Normale cursor in menu */
         }
         
         .toolbar { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; justify-content: center; align-items: center; }
         .group { display: flex; flex-direction: column; align-items: center; }
         .label { font-size: 9px; font-weight: bold; text-transform: uppercase; color: #666; margin-bottom: 2px; }
-        select, input { padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; }
+        select, input { padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; cursor: pointer; }
         
         .btn {
             padding: 8px 16px; border: 2px solid var(--ink); background: var(--white);
-            font-weight: bold; font-size: 11px; cursor: pointer; text-transform: uppercase;
+            font-weight: bold; font-size: 11px; cursor: pointer !important; text-transform: uppercase;
             box-shadow: 2px 2px 0px rgba(0,0,0,0.2); transition: transform 0.1s;
         }
         .btn:active { transform: translate(1px, 1px); box-shadow: none; }
@@ -45,7 +55,7 @@
         #score-container { 
             position: relative; margin-top: 140px; 
             display: flex; flex-direction: column; align-items: center; 
-            min-height: 100vh; transition: margin-top 0.4s ease; cursor: crosshair; 
+            min-height: 100vh; transition: margin-top 0.4s ease; 
         }
         
         canvas { 
@@ -54,13 +64,12 @@
         }
 
         /* --- OVERLAYS --- */
-        /* DE CRUCIALE FIX: Z-Index 999999 en witte border */
         #cursor-line {
             position: absolute; left: 0; width: 100%; height: 5px;
             background: var(--accent); 
-            z-index: 999999; /* Altijd bovenop */
+            z-index: 999999; 
             display: none; pointer-events: none;
-            box-shadow: 0 0 0 2px white, 0 4px 10px rgba(0,0,0,0.5); /* Witte rand + schaduw */
+            box-shadow: 0 0 0 2px white, 0 4px 10px rgba(0,0,0,0.5);
             border-radius: 2px;
         }
 
@@ -79,10 +88,8 @@
             border-right: var(--measure-border); 
             box-sizing: border-box; 
             pointer-events: none; 
-            z-index: 50; /* Lager dan de cursor */
+            z-index: 50;
         }
-        
-        /* Actieve maat is nu Goud/Geel, dit vloekt minder met de rode lijn dan rood-op-rood */
         .meas-box.active { 
             background: var(--highlight) !important; 
             opacity: 1 !important; 
@@ -94,13 +101,12 @@
             position: fixed; bottom: 30px; width: 60px; height: 60px;
             border-radius: 50%; background: var(--ink); color: white;
             display: none; align-items: center; justify-content: center;
-            font-weight: bold; cursor: pointer; z-index: 2000;
+            font-weight: bold; cursor: pointer !important; z-index: 2000;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3); border: 2px solid white;
         }
         #stop-fab { right: 20px; background: var(--accent); }
         #pause-fab { left: 20px; background: #f1c40f; color: black; }
 
-        /* --- MODES --- */
         body.mode-play #ui-bar { transform: translateY(-100%); }
         body.mode-play #score-container { margin-top: 20px; } 
         body.mode-clean .sys-box, body.mode-clean .meas-box { opacity: 0 !important; }
@@ -157,7 +163,7 @@
 
 <script>
     const DB = {
-        name: "ConductorProDB_v76",
+        name: "ConductorProDB_v77",
         version: 1,
         db: null,
         async init() {
@@ -286,7 +292,7 @@
 
         onEditorClick(yPct, xPct) {
             if (this.state === 'MARKING_TOP') {
-                this.tempSys = { top: yPct, bottom: 0, measures: [], ui: [] };
+                this.tempSys = { top: yPct, bottom: 0, measures: [], ui: [], lastX: 0, previewBlock: null };
                 this.state = 'MARKING_BOTTOM'; this.setStatus("Klik ONDERKANT regel");
             } 
             else if (this.state === 'MARKING_BOTTOM') {
@@ -295,10 +301,13 @@
                 this.state = 'MARKING_MEASURES';
                 this.setStatus("Klik maatstrepen. Druk OK.");
                 document.getElementById('btn-ok').style.display = 'inline-block';
+                
+                // LIVE ZEBRA: Start direct met het tekenen van de "rest" van de regel
+                this.updateLiveZebra(this.tempSys, 0); 
             }
             else if (this.state === 'MARKING_MEASURES') {
                 this.tempSys.measures.push(xPct);
-                this.drawMeasureBlock(this.tempSys, xPct);
+                this.updateLiveZebra(this.tempSys, xPct);
             }
         },
 
@@ -308,32 +317,42 @@
             this.ui.container.appendChild(div); sys.ui.push(div);
         },
 
-        drawMeasureBlock(sys, currentX) {
-            const sortedMeasures = [...sys.measures].sort((a,b) => a - b);
-            const index = sortedMeasures.indexOf(currentX);
-            const prevX = (index > 0) ? sortedMeasures[index - 1] : 0;
-            
-            const div = document.createElement('div'); div.className = 'meas-box';
-            div.style.left = prevX + '%';
-            div.style.width = (currentX - prevX) + '%';
-            
-            const isEven = (index % 2 === 0);
-            div.style.background = isEven ? 'var(--zebra-odd)' : 'var(--zebra-even)';
-            
+        updateLiveZebra(sys, currentClickX) {
             const sysBox = sys.ui[0];
-            sysBox.appendChild(div);
+            
+            // 1. Als er een preview block was, maak het definitief (update breedte)
+            if (sys.previewBlock) {
+                sys.previewBlock.style.width = (currentClickX - sys.lastX) + '%';
+                // Het preview block is nu een 'echt' block geworden
+            } else if (currentClickX > 0) {
+                // Eerste klik (geen preview), maak eerste block (0 tot click)
+                /* Dit edge case wordt afgevangen door init op 0 */
+            }
+
+            // 2. Maak een NIEUW preview block voor de rest van de regel (Click tot 100%)
+            // Bepaal kleur (om en om)
+            const count = sys.measures.length; // Hoeveel clicks hebben we al gehad?
+            const isNextEven = (count % 2 === 1); // Wissel af
+            
+            const nextBlock = document.createElement('div'); 
+            nextBlock.className = 'meas-box';
+            nextBlock.style.left = currentClickX + '%';
+            nextBlock.style.width = (100 - currentClickX) + '%';
+            nextBlock.style.background = isNextEven ? 'var(--zebra-even)' : 'var(--zebra-odd)';
+            
+            sysBox.appendChild(nextBlock);
+            
+            // Update pointers
+            sys.lastX = currentClickX;
+            sys.previewBlock = nextBlock;
         },
 
         commitSystem() {
+            // Het laatste 'preview' block is automatisch de laatste maat.
+            // We hoeven niets te doen, want updateLiveZebra tekent altijd tot 100%.
+            // We sorteren de measures alleen voor de data-opslag.
             this.tempSys.measures.sort((a,b) => a - b);
-            const lastX = this.tempSys.measures[this.tempSys.measures.length - 1] || 0;
-            if (lastX < 100) {
-                const div = document.createElement('div'); div.className = 'meas-box';
-                div.style.left = lastX + '%'; div.style.width = (100 - lastX) + '%';
-                const isEven = (this.tempSys.measures.length % 2 === 0);
-                div.style.background = isEven ? 'var(--zebra-odd)' : 'var(--zebra-even)';
-                this.tempSys.ui[0].appendChild(div);
-            }
+            
             this.systems.push(this.tempSys);
             this.tempSys = null;
             this.state = 'MARKING_TOP'; this.setStatus("Regel opgeslagen.");
@@ -341,10 +360,19 @@
         },
 
         undo() {
-            if (this.state === 'MARKING_MEASURES' && this.tempSys.measures.length > 0) {
-                this.tempSys.measures.pop();
+            // Undo is nu lastig met de live logic, simpele reset voor nu:
+            if (this.state === 'MARKING_MEASURES') {
+                // Verwijder alles in de huidige sys box en begin opnieuw vanaf 'bottom' state
+                // (Betere undo zou complexer zijn, dit is veilig)
                 const sysBox = this.tempSys.ui[0];
-                if (sysBox.lastChild) sysBox.lastChild.remove();
+                while(sysBox.firstChild) sysBox.removeChild(sysBox.firstChild);
+                
+                this.tempSys.measures = [];
+                this.tempSys.lastX = 0;
+                this.tempSys.previewBlock = null;
+                
+                // Restart zebra
+                this.updateLiveZebra(this.tempSys, 0);
             } else if (this.systems.length > 0) {
                 const sys = this.systems.pop();
                 sys.ui.forEach(el => el.remove());
@@ -354,6 +382,7 @@
 
         clearOverlays() { document.querySelectorAll('.sys-box, .meas-box').forEach(e => e.remove()); },
 
+        // --- PLAYBACK ---
         async play() {
             if (!this.systems.length) return alert("Geen data!");
             this.isRunning = true; this.isPaused = false;
@@ -448,7 +477,6 @@
                     }
                     this.ui.line.style.top = y + '%';
 
-                    // SMOOTH SCROLL (Integer)
                     const lineRect = this.ui.line.getBoundingClientRect();
                     const idealPos = window.innerHeight * 0.45; 
                     const delta = lineRect.top - idealPos;
@@ -500,9 +528,14 @@
                 record.data.systems.forEach(s => {
                     this.tempSys = { top: s.top, bottom: s.bottom, measures: s.measures, ui: [] };
                     this.drawSystemBox(this.tempSys);
+                    // Re-draw voor load (gebruik hier de live update logica niet, maar statische loop)
+                    const sysDiv = this.tempSys.ui[0];
                     let px = 0;
-                    [...s.measures, 100].forEach(mx => {
-                        if (mx > 0) this.drawMeasureBlock(this.tempSys, mx);
+                    [...s.measures, 100].forEach((mx, i) => {
+                        const div = document.createElement('div'); div.className = 'meas-box';
+                        div.style.left = px + '%'; div.style.width = (mx - px) + '%';
+                        div.style.background = (i % 2 === 0) ? 'var(--zebra-odd)' : 'var(--zebra-even)';
+                        sysDiv.appendChild(div);
                         px = mx;
                     });
                     this.commitSystem();
