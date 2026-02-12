@@ -3,25 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Conductor Pro v75 - High Contrast</title>
+    <title>Conductor Pro v76 - High Visibility</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
             --ink: #111; --paper: #f4f4f4; --white: #fff;
-            --accent: #e74c3c; 
-            --highlight: rgba(231, 76, 60, 0.4); /* Feller rood voor playback */
+            --accent: #ff0000; /* Puur rood voor maximale zichtbaarheid */
+            --highlight: rgba(255, 200, 0, 0.25); /* Geel/Goud voor actieve maat (beter contrast met rood) */
             --ui-bg: rgba(255, 255, 255, 0.98);
             
-            /* HIGH CONTRAST EDITOR KLEUREN */
-            /* Maat Type 1: Zichtbaar grijs */
-            --zebra-odd: rgba(0, 0, 0, 0.10); 
-            /* Maat Type 2: Duidelijk donkerder grijs */
-            --zebra-even: rgba(0, 0, 0, 0.25);
-            /* De scheidingslijn */
+            /* High Contrast Zebra */
+            --zebra-odd: rgba(0, 0, 0, 0.05); 
+            --zebra-even: rgba(0, 0, 0, 0.20);
             --measure-border: 2px solid #000;
         }
 
-        body { font-family: 'Georgia', serif; margin: 0; background: var(--paper); color: var(--ink); overflow-x: hidden; }
+        body { font-family: 'Georgia', serif; margin: 0; background: var(--paper); color: var(--ink); overflow-x: hidden; user-select: none; }
 
         /* --- HEADER --- */
         #ui-bar {
@@ -57,34 +54,39 @@
         }
 
         /* --- OVERLAYS --- */
+        /* DE CRUCIALE FIX: Z-Index 999999 en witte border */
         #cursor-line {
-            position: absolute; left: 0; width: 100%; height: 4px;
-            background: var(--accent); z-index: 500; display: none; pointer-events: none;
-            box-shadow: 0 0 10px var(--accent);
+            position: absolute; left: 0; width: 100%; height: 5px;
+            background: var(--accent); 
+            z-index: 999999; /* Altijd bovenop */
+            display: none; pointer-events: none;
+            box-shadow: 0 0 0 2px white, 0 4px 10px rgba(0,0,0,0.5); /* Witte rand + schaduw */
+            border-radius: 2px;
         }
 
         #info-bubble {
-            position: absolute; left: 50%; bottom: -35px; transform: translateX(-50%);
-            background: var(--ink); color: white; padding: 4px 12px;
-            font-size: 12px; font-weight: bold; border-radius: 12px;
+            position: absolute; left: 50%; bottom: -45px; transform: translateX(-50%);
+            background: var(--ink); color: white; padding: 5px 14px;
+            font-size: 13px; font-weight: bold; border-radius: 20px;
             white-space: nowrap; pointer-events: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
 
-        .sys-box { position: absolute; left: 0; width: 100%; border: 3px solid #000; pointer-events: none; opacity: 0.7; }
+        .sys-box { position: absolute; left: 0; width: 100%; border: 3px solid #000; pointer-events: none; opacity: 0.7; z-index: 100; }
         
-        /* DE HARDE MAATBLOKKEN */
         .meas-box { 
             position: absolute; top: 0; height: 100%; 
             border-right: var(--measure-border); 
-            box-sizing: border-box; /* Zorgt dat border binnen breedte valt */
+            box-sizing: border-box; 
             pointer-events: none; 
+            z-index: 50; /* Lager dan de cursor */
         }
         
-        /* PLAYBACK HIGHLIGHT (OVERSCHRIJFT ZEBRA) */
+        /* Actieve maat is nu Goud/Geel, dit vloekt minder met de rode lijn dan rood-op-rood */
         .meas-box.active { 
             background: var(--highlight) !important; 
-            border-right: 2px solid var(--accent) !important;
             opacity: 1 !important; 
+            border-right: 3px solid var(--ink) !important;
         }
 
         /* --- FAB BUTTONS --- */
@@ -154,9 +156,8 @@
 <div id="stop-fab" class="fab">STOP</div>
 
 <script>
-    // --- DATABASE ---
     const DB = {
-        name: "ConductorProDB_v75",
+        name: "ConductorProDB_v76",
         version: 1,
         db: null,
         async init() {
@@ -202,7 +203,6 @@
         }
     };
 
-    // --- AUDIO ---
     const AudioEngine = {
         ctx: null,
         init() { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
@@ -213,13 +213,12 @@
             const gain = this.ctx.createGain();
             osc.connect(gain); gain.connect(this.ctx.destination);
             osc.frequency.value = isDownbeat ? 1000 : 600;
-            gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+            gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
             osc.start(); osc.stop(this.ctx.currentTime + 0.1);
         }
     };
 
-    // --- APP ---
     const App = {
         pdfDoc: null, currentPdfBlob: null, systems: [], tempSys: null,
         state: 'IDLE', isRunning: false, isPaused: false,
@@ -247,7 +246,6 @@
             document.getElementById('lib-select').onchange = (e) => this.handleLoad(e.target.value);
             document.getElementById('btn-del').onclick = () => this.handleDelete();
             
-            // EDITOR
             this.ui.container.onmousedown = (e) => {
                 if (this.isRunning) return;
                 const rect = this.ui.container.getBoundingClientRect();
@@ -319,7 +317,6 @@
             div.style.left = prevX + '%';
             div.style.width = (currentX - prevX) + '%';
             
-            // CONTRAST LOGICA
             const isEven = (index % 2 === 0);
             div.style.background = isEven ? 'var(--zebra-odd)' : 'var(--zebra-even)';
             
@@ -329,19 +326,14 @@
 
         commitSystem() {
             this.tempSys.measures.sort((a,b) => a - b);
-            
-            // LAATSTE MAAT OOK TEKENEN
             const lastX = this.tempSys.measures[this.tempSys.measures.length - 1] || 0;
             if (lastX < 100) {
                 const div = document.createElement('div'); div.className = 'meas-box';
-                div.style.left = lastX + '%';
-                div.style.width = (100 - lastX) + '%';
-                // Kleur logica doortrekken
+                div.style.left = lastX + '%'; div.style.width = (100 - lastX) + '%';
                 const isEven = (this.tempSys.measures.length % 2 === 0);
                 div.style.background = isEven ? 'var(--zebra-odd)' : 'var(--zebra-even)';
                 this.tempSys.ui[0].appendChild(div);
             }
-
             this.systems.push(this.tempSys);
             this.tempSys = null;
             this.state = 'MARKING_TOP'; this.setStatus("Regel opgeslagen.");
@@ -362,7 +354,6 @@
 
         clearOverlays() { document.querySelectorAll('.sys-box, .meas-box').forEach(e => e.remove()); },
 
-        // --- PLAYBACK ---
         async play() {
             if (!this.systems.length) return alert("Geen data!");
             this.isRunning = true; this.isPaused = false;
@@ -457,16 +448,11 @@
                     }
                     this.ui.line.style.top = y + '%';
 
-                    // --- ANTI-JITTER SMOOTH SCROLL (Deadzone + Integer rounding) ---
+                    // SMOOTH SCROLL (Integer)
                     const lineRect = this.ui.line.getBoundingClientRect();
                     const idealPos = window.innerHeight * 0.45; 
                     const delta = lineRect.top - idealPos;
-
-                    if (delta > 10) { 
-                        // Scroll alleen als we meer dan 10px afwijken, en doe dit in hele pixels
-                        const step = Math.ceil(delta * 0.04); 
-                        window.scrollBy(0, step); 
-                    }
+                    if (delta > 10) window.scrollBy(0, Math.ceil(delta * 0.04));
 
                     if (elapsed < totalDuration) requestAnimationFrame(tick);
                     else resolve();
@@ -514,7 +500,6 @@
                 record.data.systems.forEach(s => {
                     this.tempSys = { top: s.top, bottom: s.bottom, measures: s.measures, ui: [] };
                     this.drawSystemBox(this.tempSys);
-                    // Force Zebra redraw
                     let px = 0;
                     [...s.measures, 100].forEach(mx => {
                         if (mx > 0) this.drawMeasureBlock(this.tempSys, mx);
