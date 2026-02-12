@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Conductor App v68 - Metronome Restored</title>
+    <title>The Conductor App v69 - Library Fix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <style>
         :root { 
@@ -62,12 +62,12 @@
 <body>
 
 <header id="master-header">
-    <div class="status-bar" id="step-info">Conductor v68 - Metronome Fix</div>
+    <div class="status-bar" id="step-info">Conductor v69 - Database Fix</div>
     <div class="nav-container">
         <div class="control-group">
             <span class="input-label">Bibliotheek</span>
             <div style="display:flex; gap:4px;">
-                <select id="library-select" style="padding:4px;"><option value="">-- Scores --</option></select>
+                <select id="library-select" style="padding:4px;"><option value="">-- Geen scores --</option></select>
                 <button id="del-btn" class="btn btn-danger" style="padding:4px 8px;">X</button>
             </div>
         </div>
@@ -80,10 +80,10 @@
             </div>
         </div>
         <div class="control-group">
-            <span class="input-label">Mode & Glide</span>
+            <span class="input-label">Geluid & Mode</span>
             <div style="display:flex; gap:8px; align-items:center;">
+                <select id="metronome-switch" style="padding:4px;"><option value="on">Klik AAN</option><option value="off">Klik UIT</option></select>
                 <select id="play-mode" style="padding:4px;"><option value="guide">Guide</option><option value="clean">Clean</option></select>
-                <input type="range" id="glide-input" min="0" max="40" value="15" style="width: 45px;">
             </div>
         </div>
         <div style="display:flex; gap:6px;">
@@ -105,7 +105,8 @@
 <div id="stop-btn" class="orb-btn">STOP</div>
 
 <script>
-    const DB_NAME = "ConductorAppDB_v68";
+    // Unieke database naam voor v69 om conflicten te vermijden
+    const DB_NAME = "ConductorApp_Final_v69"; 
     const DB_VERSION = 1;
     let db;
 
@@ -117,7 +118,6 @@
         async init() {
             await this.initDB();
             this.bindEvents();
-            this.refreshLibrary();
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
         },
 
@@ -126,9 +126,15 @@
                 const request = indexedDB.open(DB_NAME, DB_VERSION);
                 request.onupgradeneeded = (e) => {
                     db = e.target.result;
-                    db.createObjectStore("scores", { keyPath: "name" });
+                    if (!db.objectStoreNames.contains("scores")) {
+                        db.createObjectStore("scores", { keyPath: "name" });
+                    }
                 };
-                request.onsuccess = (e) => { db = e.target.result; resolve(); };
+                request.onsuccess = (e) => { 
+                    db = e.target.result; 
+                    this.refreshLibrary(); 
+                    resolve(); 
+                };
             });
         },
 
@@ -152,13 +158,17 @@
         },
 
         async loadPDF(data) {
-            this.updateStatus("Rendering PDF...");
+            this.updateStatus("Laden...");
             this.pdf = await pdfjsLib.getDocument({ data: data }).promise;
             const container = document.getElementById('viewer-container');
             container.querySelectorAll('canvas').forEach(c => c.remove());
+            container.querySelectorAll('.system-box').forEach(b => b.remove());
+            container.querySelectorAll('.label-tag').forEach(t => t.remove());
+            this.systems = [];
+
             for (let i = 1; i <= this.pdf.numPages; i++) {
                 const page = await this.pdf.getPage(i);
-                const viewport = page.getViewport({ scale: 2.2 });
+                const viewport = page.getViewport({ scale: 2.0 });
                 const canvas = document.createElement('canvas');
                 canvas.width = viewport.width; canvas.height = viewport.height;
                 await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
@@ -245,39 +255,41 @@
         },
 
         saveToApp() {
-            if (!this.systems.length || !this.pdfData) return alert("Upload PDF en markeer eerst!");
-            const name = prompt("Naam van deze partituur:");
+            if (!this.systems.length || !this.pdfData) return alert("Upload een PDF en markeer systemen!");
+            const name = prompt("Geef dit muziekstuk een naam:");
             if (!name) return;
+
             const transaction = db.transaction(["scores"], "readwrite");
+            const store = transaction.objectStore("scores");
+            
             const score = {
                 name: name,
                 pdfData: this.pdfData,
                 bpm: document.getElementById('bpm-input').value,
                 ts: document.getElementById('ts-input').value,
-                glide: document.getElementById('glide-input').value,
                 systems: this.systems.map(s => ({ top: s.top, bottom: s.bottom, measures: s.measures }))
             };
-            transaction.objectStore("scores").put(score);
-            transaction.oncomplete = () => { alert("Opgeslagen!"); this.refreshLibrary(); };
-        },
 
-        deleteFromApp() {
-            const name = document.getElementById('library-select').value;
-            if (!name || !confirm(`Weet je zeker dat je '${name}' wilt verwijderen?`)) return;
-            const transaction = db.transaction(["scores"], "readwrite");
-            transaction.objectStore("scores").delete(name);
-            transaction.oncomplete = () => { location.reload(); };
+            const request = store.put(score);
+            request.onsuccess = () => {
+                alert("Succesvol opgeslagen in de bibliotheek!");
+                this.refreshLibrary();
+            };
+            request.onerror = () => alert("Fout bij opslaan.");
         },
 
         refreshLibrary() {
             const select = document.getElementById('library-select');
             select.innerHTML = '<option value="">-- Scores --</option>';
             const transaction = db.transaction(["scores"], "readonly");
-            transaction.objectStore("scores").openCursor().onsuccess = (e) => {
-                const cursor = e.target.result;
+            const store = transaction.objectStore("scores");
+            
+            store.openCursor().onsuccess = (event) => {
+                const cursor = event.target.result;
                 if (cursor) {
                     const opt = document.createElement('option');
-                    opt.value = cursor.key; opt.innerText = cursor.key;
+                    opt.value = cursor.key;
+                    opt.textContent = cursor.key;
                     select.appendChild(opt);
                     cursor.continue();
                 }
@@ -293,7 +305,6 @@
                 await this.loadPDF(this.pdfData);
                 document.getElementById('bpm-input').value = data.bpm;
                 document.getElementById('ts-input').value = data.ts;
-                document.getElementById('glide-input').value = data.glide || 15;
                 this.systems = [];
                 data.systems.forEach(s => {
                     this.currentSystem = { top: s.top, bottom: s.bottom, measures: [], blocks: [] };
@@ -301,13 +312,27 @@
                     s.measures.forEach(m => this.addMeasure(m));
                     this.confirmSystem();
                 });
+                this.updateStatus("Klaar voor start");
+            };
+        },
+
+        deleteFromApp() {
+            const select = document.getElementById('library-select');
+            const name = select.value;
+            if (!name || !confirm(`Weet je zeker dat je '${name}' wilt wissen?`)) return;
+            const transaction = db.transaction(["scores"], "readwrite");
+            transaction.objectStore("scores").delete(name);
+            transaction.oncomplete = () => {
+                alert("Verwijderd.");
+                this.refreshLibrary();
+                location.reload();
             };
         },
 
         async start() {
             if (!this.systems.length) return;
             this.isRunning = true; this.isPaused = false;
-            this.lastBeat = -1; // Reset beat tracking
+            this.lastBeat = -1;
             const mode = document.getElementById('play-mode').value;
             document.body.classList.add('is-playing', 'play-' + mode);
             document.getElementById('master-header').style.transform = 'translateY(-100%)';
@@ -315,13 +340,12 @@
             document.getElementById('stop-btn').style.display = 'flex';
             document.getElementById('scanning-line').style.display = 'block';
 
+            if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (this.audioCtx.state === 'suspended') await this.audioCtx.resume();
+
             const bpm = parseInt(document.getElementById('bpm-input').value);
             const ts = parseInt(document.getElementById('ts-input').value);
             const glide = parseInt(document.getElementById('glide-input').value) / 100;
-
-            // Audio initialisatie
-            if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (this.audioCtx.state === 'suspended') await this.audioCtx.resume();
 
             for (let i = 0; i < this.systems.length; i++) {
                 if (!this.isRunning) break;
@@ -336,34 +360,26 @@
                 const trD = (idx < this.systems.length - 1) ? tD * gF : 0;
                 const sD = tD - trD; let startTime = performance.now();
                 const line = document.getElementById('scanning-line');
+                const useSound = document.getElementById('metronome-switch').value === 'on';
 
                 const tick = (now) => {
                     if (!this.isRunning) return res();
                     if (this.isPaused) { startTime += (performance.now() - now); requestAnimationFrame(tick); return; }
                     const el = (now - startTime) / 1000;
                     const pr = Math.min(el / tD, 0.999);
-                    const totalBeats = nM * ts;
-                    const currentTotalBeat = Math.floor(pr * totalBeats);
+                    const cB = Math.floor(pr * (nM * ts));
 
-                    // METRONOOM & BUBBLE UPDATE
-                    if (currentTotalBeat !== this.lastBeat) {
-                        const beatInMeasure = (currentTotalBeat % ts);
-                        this.click(beatInMeasure === 0); // Accent op de eerste tel
-                        this.lastBeat = currentTotalBeat;
-                        document.getElementById('beat-bubble').innerText = `M ${Math.floor(currentTotalBeat/ts)+1} | B ${beatInMeasure+1}`;
+                    if (cB !== this.lastBeat) {
+                        if (useSound) this.click(cB % ts === 0);
+                        this.lastBeat = cB;
+                        document.getElementById('beat-bubble').innerText = `M ${Math.floor(cB/ts)+1} | B ${(cB%ts)+1}`;
                     }
 
-                    // BLOK HIGHLIGHT
-                    sys.blocks.forEach((b, k) => b.classList.toggle('active', k === Math.floor(currentTotalBeat/ts)));
-
-                    // LIJN BEWEGING
+                    sys.blocks.forEach((b, k) => b.classList.toggle('active', k === Math.floor(cB/ts)));
                     let y = (el <= sD) ? sys.top + (el * ((sys.bottom - sys.top) / sD)) : sys.bottom + (this.systems[idx+1].top - sys.bottom) * ((el - sD) / trD);
                     line.style.top = y + '%';
-
-                    // AUTO-SCROLL
                     const lineRect = line.getBoundingClientRect();
-                    const targetPos = window.innerHeight * 0.40;
-                    if (lineRect.top > targetPos) window.scrollBy(0, lineRect.top - targetPos);
+                    if (lineRect.top > window.innerHeight * 0.40) window.scrollBy(0, lineRect.top - window.innerHeight * 0.40);
 
                     if (el < tD) requestAnimationFrame(tick); else res();
                 };
@@ -371,18 +387,16 @@
             });
         },
 
-        click(isFirstBeat) {
-            const o = this.audioCtx.createOscillator();
-            const g = this.audioCtx.createGain();
+        click(h) {
+            const o = this.audioCtx.createOscillator(); const g = this.audioCtx.createGain();
             o.connect(g); g.connect(this.audioCtx.destination);
-            o.frequency.value = isFirstBeat ? 1200 : 800; // Hoog voor tel 1, lager voor de rest
-            g.gain.setValueAtTime(0.15, this.audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.06);
-            o.start(); o.stop(this.audioCtx.currentTime + 0.06);
+            o.frequency.value = h ? 1200 : 800; g.gain.setValueAtTime(0.1, this.audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.05);
+            o.start(); o.stop(this.audioCtx.currentTime + 0.05);
         },
 
         togglePause() { this.isPaused = !this.isPaused; document.getElementById('pause-btn').innerText = this.isPaused ? "GA" : "PAUZE"; },
-        stop() { this.isRunning = false; document.body.classList.remove('is-playing', 'play-guide', 'play-clean'); document.getElementById('master-header').style.transform = 'translateY(0)'; document.getElementById('pause-btn').style.display = 'none'; document.getElementById('stop-btn').style.display = 'none'; document.getElementById('scanning-line').style.display = 'none'; window.scrollTo(0,0); },
+        stop() { this.isRunning = false; document.body.className = ''; document.getElementById('master-header').style.transform = 'translateY(0)'; document.getElementById('pause-btn').style.display = 'none'; document.getElementById('stop-btn').style.display = 'none'; document.getElementById('scanning-line').style.display = 'none'; window.scrollTo(0,0); },
         updateStatus(m) { document.getElementById('step-info').innerText = m; }
     };
     Engine.init();
